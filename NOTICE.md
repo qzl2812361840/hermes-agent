@@ -34,6 +34,7 @@ SPDX header pointing at the original `src/**/*.js` source.
 | `agent/self_evolution.py` | `src/memory/self-evolution.js` | Self-evolution ledger for actionable memories (procedure / constraint / policy / lesson); prompt renderer split off from injection (see file docstring for the caching-hazard note) |
 
 | `agent/prefetch.py` | `src/prefetch/runner.js` | Background prefetch runner (framework only; no built-in tasks) |
+| `agent/reminders.py` | `src/capabilities/tools/reminders.js` + `src/db/repositories/reminders.js` | User-facing reminders domain model + one-off / recurrence engine (`ReminderStore` protocol, `ReminderManager`) |
 
 
 (Additional entries will be appended as more BaiLongma modules are
