@@ -24,6 +24,7 @@ SPDX header pointing at the original `src/**/*.js` source.
 
 | Hermes file | Upstream source | Notes |
 | --- | --- | --- |
+
 | `agent/heartbeat.py` | `src/runtime/consciousness-loop.js` | Autonomous L2 tick loop |
 | `agent/heartbeat_policy.py` | `src/runtime/tick-policy.js` | Heartbeat prompt policy |
 | `agent/keywords.py` | `src/memory/keywords.js` | Zero-dep CN/EN n-gram extraction |
@@ -31,6 +32,9 @@ SPDX header pointing at the original `src/**/*.js` source.
 | `agent/thread_classifier.py` | `src/memory/thread-classifier.js` | LLM arbiter for weak-signal thread merges |
 | `agent/memory_consolidator.py` | `src/memory/consolidator.js` + `src/memory/consolidation-loop.js` | Round-robin memory consolidation (merge / downgrade / skip); dependency-injected store + LLM |
 | `agent/self_evolution.py` | `src/memory/self-evolution.js` | Self-evolution ledger for actionable memories (procedure / constraint / policy / lesson); prompt renderer split off from injection (see file docstring for the caching-hazard note) |
+
+| `agent/prefetch.py` | `src/prefetch/runner.js` | Background prefetch runner (framework only; no built-in tasks) |
+
 
 (Additional entries will be appended as more BaiLongma modules are
 ported.)
