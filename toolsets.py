@@ -117,6 +117,13 @@ TOOLSETS = {
         "trigger scheduled tasks",
         ["cronjob_manage"],
     ),
+    "federation": _ts(
+        "Federation — cross-machine agent communication. Discover peers, probe their "
+        "status, and delegate tasks to remote Hermes instances. Enabled via "
+        "federation.enabled in config.yaml with a configured peer list. "
+        "Auth via HMAC-SHA256 shared secrets.",
+        ["federation_discover", "federation_delegate"],
+    ),
     "file": _ts(
         "File manipulation tools: read, write, patch (with fuzzy matching), and "
         "search (content + files)",
