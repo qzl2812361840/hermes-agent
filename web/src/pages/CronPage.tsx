@@ -928,7 +928,6 @@ export default function CronPage() {
         />
       )}
 
-
       <DeleteConfirmDialog
         open={jobDelete.isOpen}
         onCancel={jobDelete.cancel}

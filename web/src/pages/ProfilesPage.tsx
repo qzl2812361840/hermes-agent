@@ -270,12 +270,12 @@ export default function ProfilesPage() {
   const L = useMemo(() => {
     const p = t.profiles;
     return {
-      activeProfile: p.activeProfile ?? "Active profile",
+      activeProfile: p.activeProfile ?? "当前档案",
       activeBadge: p.activeBadge ?? "active",
-      setActive: p.setActive ?? "Set as active",
-      activeSet: p.activeSet ?? "Active profile set",
-      gatewayRunning: p.gatewayRunning ?? "Gateway running",
-      gatewayStopped: p.gatewayStopped ?? "Gateway stopped",
+      setActive: p.setActive ?? "设为当前",
+      activeSet: p.activeSet ?? "当前档案已切换",
+      gatewayRunning: p.gatewayRunning ?? "网关运行中",
+      gatewayStopped: p.gatewayStopped ?? "网关已停止",
       gatewayRunningWarning:
         p.gatewayRunningWarning ??
         "This profile's gateway is running — it will be stopped.",
@@ -283,30 +283,30 @@ export default function ProfilesPage() {
       description: p.description ?? "Description",
       descriptionPlaceholder:
         p.descriptionPlaceholder ??
-        "What is this profile good at? Used to route kanban tasks by role.",
-      noDescription: p.noDescription ?? "No description",
-      editDescription: p.editDescription ?? "Edit description",
-      descriptionSaved: p.descriptionSaved ?? "Description saved",
+        "这个档案擅长什么？用于按角色路由看板任务。",
+      noDescription: p.noDescription ?? "暂无描述",
+      editDescription: p.editDescription ?? "编辑描述",
+      descriptionSaved: p.descriptionSaved ?? "描述已保存",
       reviewBadge: p.reviewBadge ?? "review",
       autoGenerate: p.autoGenerate ?? "Auto-generate",
       generating: p.generating ?? "Generating…",
-      describeFailed: p.describeFailed ?? "Could not generate description",
+      describeFailed: p.describeFailed ?? "无法生成描述",
       distribution: p.distribution ?? "Distribution",
-      advancedOptions: p.advancedOptions ?? "Advanced options",
+      advancedOptions: p.advancedOptions ?? "高级选项",
       cloneAll:
-        p.cloneAll ?? "Clone everything (memories, sessions, skills, state)",
-      noSkillsOption: p.noSkillsOption ?? "Don't seed bundled skills",
-      descriptionOptional: p.descriptionOptional ?? "Description (optional)",
-      modelOptional: p.modelOptional ?? "Model (optional)",
+        p.cloneAll ?? "克隆全部内容（记忆、会话、技能、状态）",
+      noSkillsOption: p.noSkillsOption ?? "不预置内置技能",
+      descriptionOptional: p.descriptionOptional ?? "描述（可选）",
+      modelOptional: p.modelOptional ?? "模型（可选）",
       modelInherit: p.modelInherit ?? "Inherit from clone / default",
-      modelLoading: p.modelLoading ?? "Loading models…",
+      modelLoading: p.modelLoading ?? "正在加载模型…",
       modelNone:
         p.modelNone ?? "No model providers are set up yet. Add an API key under Keys or sign in to a provider under Models.",
-      editModel: p.editModel ?? "Change model",
-      modelSaved: p.modelSaved ?? "Model updated",
-      modelSelect: p.modelSelect ?? "Select a model",
+      editModel: p.editModel ?? "更换模型",
+      modelSaved: p.modelSaved ?? "模型已更新",
+      modelSelect: p.modelSelect ?? "选择模型",
       actions: p.actions ?? "Actions",
-      manageSkills: p.manageSkills ?? "Manage skills & tools",
+      manageSkills: p.manageSkills ?? "管理技能与工具",
       activeSetHint:
         p.activeSetHint ??
         "Dashboard switched to manage {name}. New CLI/gateway runs will use this profile too.",
@@ -756,7 +756,7 @@ export default function ProfilesPage() {
           outlined
           onClick={() => navigate("/profiles/new")}
         >
-          Build
+          完整创建
         </Button>
         <Button
           className="uppercase"

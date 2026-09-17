@@ -133,7 +133,7 @@ export default function McpPage() {
       });
     } catch (error) {
       showToast(
-        error instanceof Error ? error.message : "Invalid MCP server",
+        error instanceof Error ? error.message : "无效的 MCP 服务器",
         "error",
       );
       return;
@@ -212,7 +212,7 @@ export default function McpPage() {
         prev.map((s) => (s.name === server.name ? { ...s, enabled: next } : s)),
       );
       setRestartNote(
-        "Enable/disable takes effect on the next gateway restart.",
+        "启用/禁用将在下次网关重启后生效。",
       );
     } catch (e) {
       showToast(`Could not update the MCP server: ${errorMessage(e)}`, "error");
@@ -251,7 +251,7 @@ export default function McpPage() {
         if (res.background) {
           showToast("Installing in background…", "success");
         } else {
-          showToast(`Installed: "${truncateText(entry.name, 30)}"`, "success");
+          showToast(`已安装："${truncateText(entry.name, 30)}"`, "success");
         }
         setInstallEntry(null);
         setInstallEnv({});
@@ -294,7 +294,7 @@ export default function McpPage() {
     void runInstall(installEntry, envMap);
   };
 
-  // Put "Add Server" button in page header
+  // Put "添加服务器" button in page header
   useLayoutEffect(() => {
     setEnd(
       <Button
@@ -302,7 +302,7 @@ export default function McpPage() {
         size="sm"
         onClick={() => setCreateModalOpen(true)}
       >
-        Add Server
+        添加服务器
       </Button>,
     );
     return () => {
@@ -331,11 +331,11 @@ export default function McpPage() {
         open={serverDelete.isOpen}
         onCancel={serverDelete.cancel}
         onConfirm={serverDelete.confirm}
-        title="Remove MCP server"
+        title="移除 MCP 服务器"
         description={
           serverDelete.pendingId
             ? `"${truncateText(serverDelete.pendingId, 40)}" — this will remove the server.`
-            : "This will remove the server."
+            : "这将移除该服务器。"
         }
         loading={serverDelete.isDeleting}
       />
@@ -371,7 +371,7 @@ export default function McpPage() {
                 id="create-mcp-title"
                 className="font-mondwest text-display text-base tracking-wider"
               >
-                Add MCP server
+                添加 MCP 服务器
               </h2>
             </header>
 
@@ -426,18 +426,18 @@ export default function McpPage() {
                       }}
                     >
                       <SelectOption value="none">None</SelectOption>
-                      <SelectOption value="header">Bearer token</SelectOption>
+                      <SelectOption value="header">Bearer Token</SelectOption>
                       <SelectOption value="oauth">OAuth</SelectOption>
                     </Select>
                   </div>
                   {httpAuth === "header" && (
                     <div className="grid gap-2">
-                      <Label htmlFor="mcp-bearer-token">Bearer token</Label>
+                      <Label htmlFor="mcp-bearer-token">Bearer Token</Label>
                       <Input
                         id="mcp-bearer-token"
                         type="password"
                         autoComplete="new-password"
-                        placeholder="Token or Bearer token"
+                        placeholder="Token 或 Bearer Token"
                         value={bearerToken}
                         onChange={(e) => setBearerToken(e.target.value)}
                       />
@@ -477,7 +477,7 @@ export default function McpPage() {
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="mcp-env">
-                      Environment (KEY=VALUE per line)
+                      环境变量（每行 KEY=VALUE）
                     </Label>
                     <textarea
                       id="mcp-env"
@@ -498,7 +498,7 @@ export default function McpPage() {
                   disabled={creating}
                   prefix={creating ? <Spinner /> : undefined}
                 >
-                  {creating ? "Adding..." : "Add"}
+                  {creating ? "添加中…" : "Add"}
                 </Button>
               </div>
             </div>
@@ -543,7 +543,7 @@ export default function McpPage() {
 
             <div className="p-5 grid gap-4">
               <p className="text-xs text-muted-foreground">
-                This MCP requires the following values to be configured.
+                该 MCP 需要配置以下值。
               </p>
               {installEntry.required_env.map((item) => (
                 <div className="grid gap-2" key={item.name}>
@@ -579,8 +579,8 @@ export default function McpPage() {
                   }
                 >
                   {installingName === installEntry.name
-                    ? "Installing..."
-                    : "Install"}
+                    ? "安装中…"
+                    : "安装"}
                 </Button>
               </div>
             </div>
@@ -596,7 +596,7 @@ export default function McpPage() {
             className="flex items-center gap-2 text-muted-foreground"
           >
             <Server className="h-4 w-4" />
-            Your MCP servers ({servers.length})
+            你的 MCP 服务器（{servers.length}）
           </H2>
         </div>
 
@@ -648,7 +648,7 @@ export default function McpPage() {
                     </Badge>
                     {server.auth && (
                       <Badge tone="outline">
-                        auth:{" "}
+                        认证：{" "}
                         {server.auth === "header" ? "bearer" : server.auth}
                       </Badge>
                     )}
@@ -668,7 +668,7 @@ export default function McpPage() {
                     )}
                     {envCount > 0 && (
                       <span>
-                        {envCount} env var{envCount === 1 ? "" : "s"}
+                        {envCount} 个环境变量
                       </span>
                     )}
                   </div>
@@ -684,7 +684,7 @@ export default function McpPage() {
                         </p>
                       ) : (
                         <p className="text-destructive">
-                          {result.error ?? "Connection failed"}
+                          {result.error ?? "连接失败"}
                         </p>
                       )}
                     </div>
@@ -696,7 +696,7 @@ export default function McpPage() {
                     <Button
                       ghost
                       size="sm"
-                      title="Authenticate with OAuth"
+                      title="使用 OAuth 认证"
                       onClick={() => handleAuthenticate(server)}
                       disabled={authenticating === server.name}
                       prefix={
@@ -714,8 +714,8 @@ export default function McpPage() {
                   <Button
                     ghost
                     size="sm"
-                    title={server.enabled ? "Disable" : "Enable"}
-                    aria-label={server.enabled ? "Disable" : "Enable"}
+                    title={server.enabled ? "禁用" : "启用"}
+                    aria-label={server.enabled ? "禁用" : "启用"}
                     onClick={() => handleToggleEnabled(server)}
                     disabled={togglingName === server.name}
                     prefix={
@@ -723,14 +723,14 @@ export default function McpPage() {
                     }
                     className={server.enabled ? "text-success" : undefined}
                   >
-                    {server.enabled ? "Disable" : "Enable"}
+                    {server.enabled ? "禁用" : "启用"}
                   </Button>
 
                   <Button
                     ghost
                     size="icon"
-                    title="Test connection"
-                    aria-label="Test connection"
+                    title="测试连接"
+                    aria-label="测试连接"
                     onClick={() => handleTest(server)}
                     disabled={testing === server.name}
                   >
@@ -762,18 +762,18 @@ export default function McpPage() {
             className="flex items-center gap-2 text-muted-foreground"
           >
             <Package className="h-4 w-4" />
-            <span id="mcp-catalog">Catalog ({catalog.length})</span>
+            <span id="mcp-catalog">目录（{catalog.length}）</span>
           </H2>
         </div>
 
         <p className="text-xs text-muted-foreground">
-          Browse Nous-approved MCP servers and install them with one click.
+          浏览 Nous 精选的 MCP 服务器，一键安装。
         </p>
 
         {catalog.length === 0 && (
           <Card>
             <CardContent className="py-8 text-center text-sm text-muted-foreground">
-              No catalog entries available.
+              暂无目录条目。
             </CardContent>
           </Card>
         )}
@@ -803,14 +803,14 @@ export default function McpPage() {
                         rel="noopener noreferrer"
                         className="text-xs text-primary underline underline-offset-2 hover:opacity-80"
                       >
-                        source ↗
+                        来源 ↗
                       </a>
                     ) : (
                       entry.source && (
                         <Badge tone="outline">{entry.source}</Badge>
                       )
                     )}
-                    {entry.installed && <Badge tone="success">Installed</Badge>}
+                    {entry.installed && <Badge tone="success">已安装</Badge>}
                     {entry.installed && !entry.enabled && (
                       <Badge tone="outline">disabled</Badge>
                     )}
@@ -823,13 +823,13 @@ export default function McpPage() {
                   {/* Connection detail: what the agent actually talks to. */}
                   {entry.transport === "http" && entry.url && (
                     <p className="mt-1 text-xs text-muted-foreground">
-                      <span className="font-medium">Endpoint:</span>{" "}
+                      <span className="font-medium">端点：</span>{" "}
                       <code className="font-mono">{entry.url}</code>
                     </p>
                   )}
                   {entry.transport === "stdio" && entry.command && (
                     <p className="mt-1 text-xs text-muted-foreground break-all">
-                      <span className="font-medium">Runs:</span>{" "}
+                      <span className="font-medium">运行命令：</span>{" "}
                       <code className="font-mono">
                         {[entry.command, ...entry.args].join(" ")}
                       </code>
@@ -839,7 +839,7 @@ export default function McpPage() {
                       before they install (matches the docs trust model). */}
                   {entry.install_url && (
                     <p className="mt-1 text-xs text-muted-foreground break-all">
-                      <span className="font-medium">Installs from:</span>{" "}
+                      <span className="font-medium">安装来源：</span>{" "}
                       {isHttpUrl(entry.install_url) ? (
                         <a
                           href={entry.install_url}
@@ -858,7 +858,7 @@ export default function McpPage() {
                   {entry.bootstrap.length > 0 && (
                     <details className="mt-1 text-xs text-muted-foreground">
                       <summary className="cursor-pointer select-none">
-                        Bootstrap commands ({entry.bootstrap.length})
+                        自举命令（{entry.bootstrap.length}）
                       </summary>
                       <ul className="mt-1 ml-3 list-disc space-y-0.5">
                         {entry.bootstrap.map((cmd, i) => (
@@ -875,7 +875,7 @@ export default function McpPage() {
                   {entry.post_install && (
                     <details className="mt-1 text-xs text-muted-foreground">
                       <summary className="cursor-pointer select-none">
-                        Setup notes
+                        设置说明
                       </summary>
                       <p className="mt-1 whitespace-pre-wrap">
                         {entry.post_install.trim()}
@@ -894,7 +894,7 @@ export default function McpPage() {
 
                 <div className="flex items-center gap-1 shrink-0">
                   {entry.installed ? (
-                    <Badge tone="success">Installed</Badge>
+                    <Badge tone="success">已安装</Badge>
                   ) : (
                     <Button
                       className="uppercase"
@@ -903,7 +903,7 @@ export default function McpPage() {
                       disabled={isInstalling}
                       prefix={isInstalling ? <Spinner /> : undefined}
                     >
-                      {isInstalling ? "Installing..." : "Install"}
+                      {isInstalling ? "安装中…" : "安装"}
                     </Button>
                   )}
                 </div>

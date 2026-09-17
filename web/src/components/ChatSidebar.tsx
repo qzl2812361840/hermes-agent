@@ -465,7 +465,7 @@ export function ChatSidebar({
                   // still lives under ChatPage, so router context is present.)
                   onClick={() => navigate('/env')}
                 >
-                  Add key
+                  添加密钥
                 </Button>
                 <Button size="sm" outlined onClick={() => setModelOpen(true)}>
                   Switch model

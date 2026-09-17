@@ -278,7 +278,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   // started a new session that ended the current PTY child), the PTY socket
   // closes with a normal code. Before this fix the terminal just printed
   // "[session ended]" and went dead — the only recovery was a full page
-  // refresh. `ptyState === "ended"` renders an explicit "Start new session"
+  // refresh. `ptyState === "ended"` renders an explicit "开始新会话"
   // affordance; clicking it bumps `reconnectNonce`, which is a dependency of
   // the connect effect, so a fresh PTY spawns in place.
   const [reconnectNonce, setReconnectNonce] = useState(0);
@@ -740,7 +740,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       const copyModifier = isMac ? ev.metaKey : ev.ctrlKey;
       // Paste on BARE Ctrl+V too (not only Ctrl+Shift+V). Bare Ctrl+V otherwise
       // falls through to the TUI, whose server-side clipboard read can't see the
-      // browser/OS clipboard → "No image found in clipboard". Routing Ctrl+V
+      // browser/OS clipboard → "剪贴板中没有图片". Routing Ctrl+V
       // through the same navigator.clipboard path below makes it paste
       // image-or-text correctly, like Ctrl+Shift+V.
       const pasteModifier = isMac ? ev.metaKey : ev.ctrlKey;
@@ -759,7 +759,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       ) {
         // Direct copy inside the keydown handler preserves the user
         // gesture — async round-trips through OSC 52 can lose activation
-        // and fail with "Document is not focused". copyTextToClipboard
+        // and fail with "页面未聚焦". copyTextToClipboard
         // additionally covers insecure (plain-HTTP) contexts where the
         // Clipboard API is unavailable.
         void copyTextToClipboard(terminalSelection).then((copied) => {
@@ -1386,7 +1386,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         // via a one-off JSON control frame that a replay is starting (#93518,
         // see `pty_ws` in web_server.py). Real PTY output always arrives as
         // binary frames, so any text frame is a candidate; anything that
-        // isn't this control shape (e.g. the ANSI "Chat unavailable" banners
+        // isn't this control shape (e.g. the ANSI "聊天不可用" banners
         // pty_ws sends as text on failure) falls through to the write path
         // below unchanged.
         const resumeId = parseResumeControlMessage(ev.data);
@@ -1934,10 +1934,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               <div className="flex max-w-[min(28rem,calc(100vw-3rem))] flex-col items-start gap-2 border border-warning/60 bg-black/80 px-3 py-2 text-xs text-warning shadow-lg">
                 <div className="tracking-wide">
                   {ptyState === "reconnecting"
-                    ? "Chat is reconnecting."
+                    ? "聊天正在重连。"
                     : reconnectGaveUp
                       ? PTY_GAVE_UP_BANNER.text
-                      : "Chat disconnected."}
+                      : "聊天已断开。"}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button
@@ -1945,9 +1945,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                     outlined
                     onClick={reconnectPty}
                     prefix={<RotateCcw className="h-4 w-4" />}
-                    aria-label="Reconnect chat"
+                    aria-label="重新连接聊天"
                   >
-                    Reconnect now
+                    立即重连
                   </Button>
                   {ptyState === "closed" && reconnectGaveUp && (
                     <Button
@@ -1991,9 +1991,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 <Button
                   onClick={startFreshPty}
                   prefix={<RotateCcw className="h-4 w-4" />}
-                  aria-label="Start a new chat session"
+                  aria-label="开始新的聊天会话"
                 >
-                  Start new session
+                  开始新会话
                 </Button>
                 {endedReason === "exited" && (
                   <Button
@@ -2011,8 +2011,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           <Button
             ghost
             onClick={handleCopyLast}
-            title="Copy last assistant response as raw markdown"
-            aria-label="Copy last assistant response"
+            title="复制上一条回复（原始 Markdown）"
+            aria-label="复制上一条回复"
             className={cn(
               "absolute z-10",
               "normal-case tracking-normal font-normal",
@@ -2037,8 +2037,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             <Button
               ghost
               onClick={toggleChatPanel}
-              title="Show side panel (model + sessions)"
-              aria-label="Show chat side panel"
+              title="显示侧栏（模型 + 会话）"
+              aria-label="显示聊天侧栏"
               className={cn(
                 "absolute z-10",
                 "normal-case tracking-normal font-normal",
@@ -2072,8 +2072,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 ghost
                 size="icon"
                 onClick={toggleChatPanel}
-                aria-label="Collapse chat side panel"
-                title="Collapse side panel"
+                aria-label="收起聊天侧栏"
+                title="收起侧栏"
                 className="text-text-secondary hover:text-midground"
               >
                 <X />

@@ -437,7 +437,7 @@ export default function PluginsPage() {
         showToast(`${t.pluginsPage.missingEnvWarn} ${r.missing_env!.join(", ")}`, "error");
       await Promise.all([loadHub(), loadCatalog()]);
     } catch (e) {
-      showToast(e instanceof Error ? e.message : "Install failed", "error");
+      showToast(e instanceof Error ? e.message : "安装失败", "error");
     } finally {
       setCatalogBusy(null);
     }
@@ -847,7 +847,6 @@ export default function PluginsPage() {
             </p>
           </CardHeader>
 
-
           <CardContent className="flex flex-col gap-4">
 
             <div className="flex flex-col gap-2">
@@ -863,7 +862,6 @@ export default function PluginsPage() {
                 onChange={(e) => setInstallId(e.target.value)}
               />
             </div>
-
 
             <div className="flex flex-wrap items-center gap-8">
 
@@ -983,7 +981,6 @@ export default function PluginsPage() {
 
                 <li key={row.name}>
 
-
                   <PluginRowCard
                     {...{ row, rowBusy, setRuntimeLoading, showToast, t }}
                   />
@@ -995,7 +992,6 @@ export default function PluginsPage() {
         </div>
 
         {(hub?.orphan_dashboard_plugins?.length ?? 0) > 0 ? (
-
 
           <div className="flex flex-col gap-3 opacity-95">
 
@@ -1009,15 +1005,11 @@ export default function PluginsPage() {
 
                 <li className="text-xs text-text-secondary" key={m.name}>
 
-
                   {m.label ?? m.name} — {m.description || m.tab?.path}
-
 
                   {!m.tab?.hidden ? (
 
-
                     <Link className="ml-3 inline-flex items-center gap-1 underline" to={m.tab.path}>
-
 
                       <ExternalLink className="h-3 w-3 opacity-65" />
 
@@ -1101,9 +1093,7 @@ function PluginRowCard(props: PluginRowCardProps) {
 
     <Card className={cn(busy ? "opacity-70" : undefined)}>
 
-
       <CardContent className="flex flex-col gap-4 px-6 py-4">
-
 
         <div className="flex flex-wrap items-start justify-between gap-4">
 
@@ -1216,7 +1206,6 @@ function PluginRowCard(props: PluginRowCardProps) {
 
             {row.can_remove ? (
 
-
               <Button
                 destructive
                 disabled={busy}
@@ -1258,7 +1247,6 @@ function PluginRowCard(props: PluginRowCardProps) {
         ) : null}
 
         {!row.has_dashboard_manifest && !dm ? (
-
 
           <p className="text-xs italic text-text-disabled">
             {t.pluginsPage.noDashboardTab}
@@ -1337,7 +1325,7 @@ function CatalogEntryCard(props: CatalogEntryCardProps) {
               <Button disabled={busy} ghost size="sm" onClick={onInstall}>
                 {busy ? <Spinner /> : null}
                 {entry.update_available
-                  ? t.pluginsPage.catalogUpdateBtn ?? "Update available"
+                  ? t.pluginsPage.catalogUpdateBtn ?? "有可用更新"
                   : t.pluginsPage.catalogInstallBtn ?? "Install"}
               </Button>
             )}

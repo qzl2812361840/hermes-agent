@@ -19,7 +19,7 @@
  *     we have no cookie — in that case the gate's middleware would have
  *     redirected us before App.tsx renders, so we won't see this). The
  *     widget renders nothing.
- *   - Network error: shows a minimal "auth status unavailable" message
+ *   - Network error: shows a minimal "认证状态不可用" message
  *     so the user knows the widget tried.
  */
 
@@ -52,7 +52,7 @@ export function AuthWidget({ className }: AuthWidgetProps) {
 
   // Loopback / --insecure mode: the auth gate is off, so /api/auth/me is a
   // guaranteed 401. Don't fire the request at all — it only produces console
-  // noise ("Failed to load resource: 401") on every dashboard load.
+  // noise ("资源加载失败：401") on every dashboard load.
   const gated =
     typeof window !== "undefined" && !!window.__HERMES_AUTH_REQUIRED__;
 
@@ -150,7 +150,7 @@ export function AuthWidget({ className }: AuthWidgetProps) {
           {label}
         </span>
         <span className="truncate text-muted-foreground/70">
-          via {me.provider}
+          认证：{me.provider}
         </span>
       </div>
       <button
@@ -161,8 +161,8 @@ export function AuthWidget({ className }: AuthWidgetProps) {
           "transition-colors hover:bg-current/10 hover:text-foreground",
           "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-current/40",
         )}
-        aria-label="Log out"
-        title="Log out"
+        aria-label="退出登录"
+        title="退出登录"
       >
         <LogOut className="h-3.5 w-3.5" />
       </button>

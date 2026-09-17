@@ -11,8 +11,8 @@ export const SIDECAR_DISCONNECTED_MESSAGE =
 
 /** Transport-level texts the shared JSON-RPC client can throw. All mean "sidecar down". */
 const SIDECAR_TRANSPORT_ERRORS = [
-  'WebSocket connection failed',
-  'WebSocket closed',
+  'WebSocket 连接失败',
+  'WebSocket 已关闭',
   'gateway not connected',
   'Session token not available',
   'heartbeat acknowledgement timed out'

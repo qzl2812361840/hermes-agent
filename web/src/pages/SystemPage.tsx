@@ -98,7 +98,7 @@ function backupImportLabel(target: BackupImportTarget | null): string {
 }
 
 function backupFileName(path: string | null): string {
-  if (!path) return "No backup created yet";
+  if (!path) return "尚未创建备份";
   return path.split(/[\\/]/).filter(Boolean).pop() ?? path;
 }
 
@@ -163,7 +163,7 @@ function ActionLogViewer({
               </Badge>
             )}
           </div>
-          <Button ghost size="icon" onClick={onClose} aria-label="Close log">
+          <Button ghost size="icon" onClick={onClose} aria-label="关闭日志">
             <X />
           </Button>
         </div>
@@ -184,11 +184,21 @@ const HOOK_EVENTS_FALLBACK = [
   "on_session_end",
 ];
 
+const CRED_AUTH_ZH: Record<string, string> = {
+  api_key: "API 密钥",
+  oauth: "OAuth",
+};
+const CRED_STATUS_ZH: Record<string, string> = {
+  exhausted: "已耗尽",
+  ok: "正常",
+  error: "错误",
+};
+
 const MEMORY_STATUS_LABEL: Record<MemoryProviderInfo["status"], string> = {
-  ready: "ready",
-  needs_config: "needs setup",
-  unavailable: "unavailable",
-  missing: "missing",
+  ready: "就绪",
+  needs_config: "需要配置",
+  unavailable: "不可用",
+  missing: "缺失",
 };
 
 const MEMORY_STATUS_TONE: Record<
@@ -199,6 +209,34 @@ const MEMORY_STATUS_TONE: Record<
   needs_config: "warning",
   unavailable: "destructive",
   missing: "destructive",
+};
+
+const PORTAL_FEATURE_ZH: Record<string, string> = {
+  "Web tools": "网页工具",
+  "Image generation": "图像生成",
+  "Video generation": "视频生成",
+  "Web search": "网页搜索",
+  "Browser tools": "浏览器工具",
+  Vision: "视觉",
+  "OpenAI TTS": "OpenAI TTS",
+  "Edge TTS": "Edge TTS",
+  "Speech-to-text": "语音转文字",
+  "Browser automation": "浏览器自动化",
+  "Modal execution": "Modal 执行",
+};
+const PORTAL_STATE_ZH: Record<string, string> = {
+  "not configured": "未配置",
+  configured: "已配置",
+  active: "已启用",
+  enabled: "已启用",
+  disabled: "已禁用",
+  ready: "就绪",
+  available: "可用",
+  unavailable: "不可用",
+  local: "本地",
+  "Local faster-whisper": "本地 faster-whisper",
+  "Local browser": "本地浏览器",
+  running: "运行中",
 };
 
 export default function SystemPage() {
@@ -373,7 +411,7 @@ export default function SystemPage() {
     if (!curator) return;
     try {
       await api.setCuratorPaused(!curator.paused);
-      showToast(curator.paused ? "Curator resumed" : "Curator paused", "success");
+      showToast(curator.paused ? "技能管家已恢复" : "技能管家已暂停", "success");
       loadAll();
     } catch (e) {
       showToast(`Curator toggle failed: ${errorMessage(e)}`, "error");
@@ -405,7 +443,7 @@ export default function SystemPage() {
   // ── Credential pool ────────────────────────────────────────────────
   const addCredential = async () => {
     if (!credProvider.trim() || !credKey.trim()) {
-      showToast("Provider and API key required", "error");
+      showToast("需要填写提供商和 API 密钥", "error");
       return;
     }
     setAddingCred(true);
@@ -415,7 +453,7 @@ export default function SystemPage() {
         credKey.trim(),
         credLabel.trim() || undefined,
       );
-      showToast("Credential added", "success");
+      showToast("凭据已添加", "success");
       setCredKey("");
       setCredLabel("");
       loadAll();
@@ -432,7 +470,7 @@ export default function SystemPage() {
         const [provider, idxStr] = key.split("|");
         try {
           await api.removeCredentialPoolEntry(provider, Number(idxStr));
-          showToast("Credential removed", "success");
+          showToast("凭据已移除", "success");
           loadAll();
         } catch (e) {
           showToast(`Failed to remove: ${errorMessage(e)}`, "error");
@@ -460,7 +498,7 @@ export default function SystemPage() {
       setActiveAction(res.name);
       setPendingBackupArchive(res.archive ?? null);
       setDownloadableBackupArchive(null);
-      showToast("Backup started", "success");
+      showToast("备份已开始", "success");
     } catch (e) {
       showToast(`Backup failed: ${errorMessage(e)}`, "error");
     }
@@ -471,7 +509,7 @@ export default function SystemPage() {
       if (action === "backup" && pendingBackupArchive) {
         if (exitCode === 0) {
           setDownloadableBackupArchive(pendingBackupArchive);
-          showToast("Backup ready to download", "success");
+          showToast("备份已就绪，可下载", "success");
         } else {
           setPendingBackupArchive(null);
         }
@@ -518,7 +556,7 @@ export default function SystemPage() {
           ? await api.runImportUpload(target.file, true)
           : await api.runImport(target.path, true);
       setActiveAction(res.name);
-      showToast("Import started", "success");
+      showToast("导入已开始", "success");
       if (target.kind === "upload") clearImportFile();
     } catch (e) {
       showToast(`Import failed: ${errorMessage(e)}`, "error");
@@ -547,7 +585,7 @@ export default function SystemPage() {
           1500,
         );
       } else {
-        showToast("Couldn't copy to clipboard", "error");
+        showToast("复制到剪贴板失败", "error");
       }
     },
     [showToast],
@@ -586,12 +624,12 @@ export default function SystemPage() {
           if (info.update_available) {
             showToast(
               info.behind && info.behind > 0
-                ? `Update available — ${info.behind} commit${info.behind === 1 ? "" : "s"} behind`
-                : "Update available",
+                ? `有可用更新 — 落后 ${info.behind} 个提交`
+                : "有可用更新",
               "success",
             );
           } else if (info.behind === 0) {
-            showToast("You're on the latest version", "success");
+            showToast("已是最新版本", "success");
           } else if (info.message) {
             showToast(info.message, "error");
           }
@@ -606,12 +644,12 @@ export default function SystemPage() {
   );
 
   // Auto-check (cached) runs inside loadAll on mount; this is the
-  // user-triggered forced re-check from the "Check for updates" button.
+  // user-triggered forced re-check from the "检查更新" button.
   const applyUpdate = async () => {
     setUpdateConfirmOpen(false);
     if (status?.can_update_hermes === false) {
       showToast(
-        "Hermes updates are managed outside this dashboard.",
+        "Hermes 更新在此面板之外管理。",
         "success",
       );
       return;
@@ -621,13 +659,13 @@ export default function SystemPage() {
       if (!resp.ok) {
         showToast(
           resp.message ??
-            "Updates don't apply from this dashboard.",
+            "此面板无法应用更新。",
           "success",
         );
         return;
       }
       setActiveAction(resp.name ?? "hermes-update");
-      showToast("Update started", "success");
+      showToast("更新已开始", "success");
     } catch (e) {
       showToast(`Update failed: ${errorMessage(e)}`, "error");
     }
@@ -638,7 +676,7 @@ export default function SystemPage() {
       try {
         const res = await api.pruneCheckpoints();
         setActiveAction(res.name);
-        showToast("Checkpoint prune started", "success");
+        showToast("检查点清理已开始", "success");
       } catch (e) {
         showToast(`Prune failed: ${errorMessage(e)}`, "error");
         throw e;
@@ -649,7 +687,7 @@ export default function SystemPage() {
   // ── Hooks ──────────────────────────────────────────────────────────
   const createHook = async () => {
     if (!hookCommand.trim()) {
-      showToast("Command is required", "error");
+      showToast("命令为必填项", "error");
       return;
     }
     setCreatingHook(true);
@@ -661,7 +699,7 @@ export default function SystemPage() {
         timeout: hookTimeout.trim() ? Number(hookTimeout) : undefined,
         approve: hookApprove,
       });
-      showToast("Hook created", "success");
+      showToast("钩子已创建", "success");
       setHookCommand("");
       setHookMatcher("");
       setHookTimeout("");
@@ -682,7 +720,7 @@ export default function SystemPage() {
         const command = key.slice(sep + 1);
         try {
           await api.deleteHook(event, command);
-          showToast("Hook removed", "success");
+          showToast("钩子已移除", "success");
           loadAll();
         } catch (e) {
           showToast(`Failed to remove hook: ${errorMessage(e)}`, "error");
@@ -739,45 +777,45 @@ export default function SystemPage() {
         open={canUpdateHermes && updateConfirmOpen}
         onCancel={() => setUpdateConfirmOpen(false)}
         onConfirm={() => void applyUpdate()}
-        title="Update Hermes?"
+        title="更新 Hermes？"
         description={
           updateInfo && updateInfo.behind && updateInfo.behind > 0
-            ? `This will run 'hermes update' (${updateInfo.update_command}) and pull ${updateInfo.behind} new commit${updateInfo.behind === 1 ? "" : "s"}. The gateway restarts when the update finishes; the current session keeps its prompt cache until then.`
-            : `This will run 'hermes update' (${updateInfo?.update_command ?? "hermes update"}) and restart the gateway when it finishes.`
+            ? `这将运行 'hermes update'（${updateInfo.update_command}）并拉取 ${updateInfo.behind} 个新提交。更新完成后重启网关；在此之前当前会话保留其提示缓存。`
+            : `这将运行 'hermes update'（${updateInfo?.update_command ?? "hermes update"}），完成后重启网关。`
         }
-        confirmLabel="Update now"
+        confirmLabel="立即更新"
       />
 
       <DeleteConfirmDialog
         open={memoryReset.isOpen}
         onCancel={memoryReset.cancel}
         onConfirm={memoryReset.confirm}
-        title="Reset memory"
-        description="This permanently erases the selected built-in memory files. This cannot be undone."
+        title="重置记忆"
+        description="这将永久清除所选的内置记忆文件，无法撤销。"
         loading={memoryReset.isDeleting}
       />
       <DeleteConfirmDialog
         open={credDelete.isOpen}
         onCancel={credDelete.cancel}
         onConfirm={credDelete.confirm}
-        title="Remove credential"
-        description="Remove this pooled API key? The agent will no longer rotate through it."
+        title="移除凭据"
+        description="移除这个凭据池中的 API 密钥？智能体将不再轮换使用它。"
         loading={credDelete.isDeleting}
       />
       <DeleteConfirmDialog
         open={checkpointsPrune.isOpen}
         onCancel={checkpointsPrune.cancel}
         onConfirm={checkpointsPrune.confirm}
-        title="Prune checkpoints"
-        description="Delete the rollback checkpoint shadow store? Existing /rollback points will be lost."
+        title="清理检查点"
+        description="删除回滚检查点的影子存储？现有 /rollback 将丢失。"
         loading={checkpointsPrune.isDeleting}
       />
       <DeleteConfirmDialog
         open={hookDelete.isOpen}
         onCancel={hookDelete.cancel}
         onConfirm={hookDelete.confirm}
-        title="Remove shell hook"
-        description="Remove this hook from config and revoke its consent? It stops firing on the next restart."
+        title="移除 Shell 钩子"
+        description="从配置中移除此钩子并撤销授权？重启后将不再触发。"
         loading={hookDelete.isDeleting}
       />
       <HermesConsoleModal
@@ -806,7 +844,7 @@ export default function SystemPage() {
             </Button>
             <header className="p-5 pb-3 border-b border-border">
               <h2 className="font-mondwest text-display text-base tracking-wider">
-                New shell hook
+                新建 Shell 钩子
               </h2>
             </header>
             <div className="p-5 grid gap-4">
@@ -825,7 +863,7 @@ export default function SystemPage() {
                 </Select>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="hook-command">Command (absolute path)</Label>
+                <Label htmlFor="hook-command">命令（绝对路径）</Label>
                 <Input
                   id="hook-command"
                   autoFocus
@@ -836,16 +874,16 @@ export default function SystemPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="hook-matcher">Matcher (optional)</Label>
+                  <Label htmlFor="hook-matcher">匹配规则（可选）</Label>
                   <Input
                     id="hook-matcher"
-                    placeholder="e.g. terminal"
+                    placeholder="例如 terminal"
                     value={hookMatcher}
                     onChange={(e) => setHookMatcher(e.target.value)}
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="hook-timeout">Timeout (s)</Label>
+                  <Label htmlFor="hook-timeout">超时（秒）</Label>
                   <Input
                     id="hook-timeout"
                     placeholder="10"
@@ -866,7 +904,7 @@ export default function SystemPage() {
                   htmlFor="hook-approve"
                 >
                   Approve now (grant consent so it fires; otherwise it stays
-                  configured but inactive)
+                  已配置但未启用）
                 </Label>
               </div>
               <p className="text-xs text-warning">
@@ -881,7 +919,7 @@ export default function SystemPage() {
                   disabled={creatingHook}
                   prefix={creatingHook ? <Spinner /> : undefined}
                 >
-                  {creatingHook ? "Creating" : "Create hook"}
+                  {creatingHook ? "Creating" : "创建钩子"}
                 </Button>
               </div>
             </div>
@@ -901,21 +939,21 @@ export default function SystemPage() {
       {/* ── Host / system stats ───────────────────────────────────── */}
       <section className="flex flex-col gap-3">
         <H2 variant="sm" className="flex items-center gap-2 text-muted-foreground">
-          <Server className="h-4 w-4" /> Host
+          <Server className="h-4 w-4" /> 主机
         </H2>
         <Card>
           <CardContent className="py-4">
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-3 gap-x-6 text-sm">
               <div>
-                <div className="text-xs uppercase tracking-wider text-muted-foreground">OS</div>
+                <div className="text-xs uppercase tracking-wider text-muted-foreground">操作系统</div>
                 <div>{stats?.os} {stats?.os_release}</div>
               </div>
               <div>
-                <div className="text-xs uppercase tracking-wider text-muted-foreground">Arch</div>
+                <div className="text-xs uppercase tracking-wider text-muted-foreground">架构</div>
                 <div>{stats?.arch}</div>
               </div>
               <div>
-                <div className="text-xs uppercase tracking-wider text-muted-foreground">Host</div>
+                <div className="text-xs uppercase tracking-wider text-muted-foreground">主机名</div>
                 <div className="truncate">{stats?.hostname}</div>
               </div>
               <div>
@@ -931,11 +969,11 @@ export default function SystemPage() {
                     (updateInfo.update_available ? (
                       <Badge tone="warning">
                         {updateInfo.behind && updateInfo.behind > 0
-                          ? `${updateInfo.behind} behind`
-                          : "update available"}
+                          ? `落后 ${updateInfo.behind} 个提交`
+                          : "有可用更新"}
                       </Badge>
                     ) : updateInfo.behind === 0 ? (
-                      <Badge tone="success">latest</Badge>
+                      <Badge tone="success">最新</Badge>
                     ) : null)}
                 </div>
               </div>
@@ -944,7 +982,7 @@ export default function SystemPage() {
                   <Cpu className="h-3 w-3" /> CPU
                 </div>
                 <div>
-                  {stats?.cpu_count ?? "—"} cores
+                  {stats?.cpu_count ?? "—"} 核
                   {typeof stats?.cpu_percent === "number"
                     ? ` · ${stats.cpu_percent.toFixed(0)}%`
                     : ""}
@@ -952,7 +990,7 @@ export default function SystemPage() {
               </div>
               {stats?.memory && (
                 <div>
-                  <div className="text-xs uppercase tracking-wider text-muted-foreground">Memory</div>
+                  <div className="text-xs uppercase tracking-wider text-muted-foreground">内存</div>
                   <div>
                     {formatBytes(stats.memory.used)} / {formatBytes(stats.memory.total)} ({stats.memory.percent}%)
                   </div>
@@ -961,7 +999,7 @@ export default function SystemPage() {
               {stats?.disk && (
                 <div>
                   <div className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                    <HardDrive className="h-3 w-3" /> Disk
+                    <HardDrive className="h-3 w-3" /> 磁盘
                   </div>
                   <div>
                     {formatBytes(stats.disk.used)} / {formatBytes(stats.disk.total)} ({stats.disk.percent}%)
@@ -970,21 +1008,21 @@ export default function SystemPage() {
               )}
               {typeof stats?.uptime_seconds === "number" && (
                 <div>
-                  <div className="text-xs uppercase tracking-wider text-muted-foreground">Uptime</div>
+                  <div className="text-xs uppercase tracking-wider text-muted-foreground">运行时长</div>
                   <div>{formatDuration(stats.uptime_seconds)}</div>
                 </div>
               )}
               {stats?.load_avg && stats.load_avg.length >= 3 && (
                 <div>
-                  <div className="text-xs uppercase tracking-wider text-muted-foreground">Load avg</div>
+                  <div className="text-xs uppercase tracking-wider text-muted-foreground">平均负载</div>
                   <div>{stats.load_avg.map((n) => n.toFixed(2)).join(" / ")}</div>
                 </div>
               )}
             </div>
             {stats && !stats.psutil && (
               <p className="mt-3 text-xs text-muted-foreground">
-                Install the <span className="font-mono">psutil</span> extra for
-                CPU / memory / disk metrics.
+                安装 <span className="font-mono">psutil</span> 附加组件即可获得
+                CPU / 内存 / 磁盘指标。
               </p>
             )}
             {canUpdateHermes && (
@@ -1002,7 +1040,7 @@ export default function SystemPage() {
                   }
                   onClick={() => void checkForUpdate(true)}
                 >
-                  Check for updates
+                  检查更新
                 </Button>
                 {updateInfo?.update_available && updateInfo.can_apply && (
                   <Button
@@ -1010,14 +1048,14 @@ export default function SystemPage() {
                     prefix={<Download className="h-3.5 w-3.5" />}
                     onClick={() => setUpdateConfirmOpen(true)}
                   >
-                    Update now
+                    立即更新
                   </Button>
                 )}
                 {updateInfo &&
                   !updateInfo.can_apply &&
                   updateInfo.update_available && (
                     <span className="text-xs text-muted-foreground">
-                      Update with{" "}
+                      使用{" "}
                       <span className="font-mono">{updateInfo.update_command}</span>
                     </span>
                   )}
@@ -1041,11 +1079,11 @@ export default function SystemPage() {
           <CardContent className="flex flex-col gap-3 py-4">
             <div className="flex items-center gap-3">
               <Badge tone={portal?.logged_in ? "success" : "secondary"}>
-                {portal?.logged_in ? "logged in" : "not logged in"}
+                {portal?.logged_in ? "已登录" : "未登录"}
               </Badge>
               {portal?.provider && (
                 <span className="text-sm text-muted-foreground">
-                  inference provider: {portal.provider}
+                  推理提供商：{portal.provider}
                 </span>
               )}
               <a
@@ -1054,25 +1092,25 @@ export default function SystemPage() {
                 rel="noreferrer"
                 className="ml-auto text-xs text-primary underline"
               >
-                Manage subscription
+                管理订阅
               </a>
             </div>
             {portal?.features && portal.features.length > 0 && (
               <div className="flex flex-col gap-1 border-t border-border pt-3">
                 <span className="text-xs uppercase tracking-wider text-muted-foreground">
-                  Tool Gateway routing
+                  工具网关路由
                 </span>
                 {portal.features.map((f) => (
                   <div key={f.label} className="flex items-center justify-between text-sm">
-                    <span>{f.label}</span>
-                    <span className="text-muted-foreground">{f.state}</span>
+                    <span>{PORTAL_FEATURE_ZH[f.label] ?? f.label}</span>
+                    <span className="text-muted-foreground">{PORTAL_STATE_ZH[f.state] ?? f.state}</span>
                   </div>
                 ))}
               </div>
             )}
             {!portal?.logged_in && (
               <p className="text-xs text-muted-foreground">
-                Log in with <span className="font-mono">hermes portal</span>.
+                使用 <span className="font-mono">hermes portal</span> 登录。
               </p>
             )}
           </CardContent>
@@ -1082,30 +1120,30 @@ export default function SystemPage() {
       {/* ── Curator ───────────────────────────────────────────────── */}
       <section className="flex flex-col gap-3">
         <H2 variant="sm" className="flex items-center gap-2 text-muted-foreground">
-          <Sparkles className="h-4 w-4" /> Skill curator
+          <Sparkles className="h-4 w-4" /> 技能管家
         </H2>
         <Card>
           <CardContent className="flex items-center justify-between py-4">
             <div className="flex items-center gap-3">
               <Badge tone={curator?.paused ? "warning" : curator?.enabled ? "success" : "secondary"}>
-                {curator?.paused ? "paused" : curator?.enabled ? "active" : "disabled"}
+                {curator?.paused ? "已暂停" : curator?.enabled ? "运行中" : "已禁用"}
               </Badge>
               <span className="text-sm text-muted-foreground">
-                {curator?.interval_hours ? `every ${curator.interval_hours}h` : ""}
-                {curator?.last_run_at ? ` · last run ${new Date(curator.last_run_at).toLocaleString()}` : " · never run"}
+                {curator?.interval_hours ? `每 ${curator.interval_hours} 小时` : ""}
+                {curator?.last_run_at ? ` · 上次运行 ${new Date(curator.last_run_at).toLocaleString()}` : " · 从未运行"}
               </span>
             </div>
             <div className="flex items-center gap-2">
               <Button size="sm" ghost onClick={toggleCuratorPaused}>
-                {curator?.paused ? "Resume" : "Pause"}
+                {curator?.paused ? "恢复" : "暂停"}
               </Button>
               <Button
                 size="sm"
                 ghost
                 prefix={<Play className="h-3.5 w-3.5" />}
-                onClick={() => runOp(api.runCurator, "Curator review")}
+                onClick={() => runOp(api.runCurator, "技能管家审查")}
               >
-                Run now
+                立即运行
               </Button>
             </div>
           </CardContent>
@@ -1115,13 +1153,13 @@ export default function SystemPage() {
       {/* ── Gateway ───────────────────────────────────────────────── */}
       <section className="flex flex-col gap-3">
         <H2 variant="sm" className="flex items-center gap-2 text-muted-foreground">
-          <Power className="h-4 w-4" /> Gateway
+          <Power className="h-4 w-4" /> 网关
         </H2>
         <Card>
           <CardContent className="flex items-center justify-between py-4">
             <div className="flex items-center gap-3">
               <Badge tone={gatewayRunning ? "success" : "secondary"}>
-                {gatewayRunning ? "running" : "stopped"}
+                {gatewayRunning ? "运行中" : "已停止"}
               </Badge>
               <span className="text-sm text-muted-foreground">
                 {gatewayStateDescription(status?.gateway_state, gatewayRunning)}
@@ -1140,7 +1178,7 @@ export default function SystemPage() {
                 disabled={gatewayRunning}
                 prefix={<Play className="h-3.5 w-3.5" />}
               >
-                Start
+                启动
               </Button>
               <Button
                 size="sm"
@@ -1148,7 +1186,7 @@ export default function SystemPage() {
                 onClick={requestRestart}
                 prefix={<RotateCw className="h-3.5 w-3.5" />}
               >
-                Restart
+                重启
               </Button>
               <Button
                 size="sm"
@@ -1158,7 +1196,7 @@ export default function SystemPage() {
                 disabled={!gatewayRunning}
                 prefix={<Power className="h-3.5 w-3.5" />}
               >
-                Stop
+                停止
               </Button>
             </div>
           </CardContent>
@@ -1196,15 +1234,15 @@ export default function SystemPage() {
       {/* ── Memory ────────────────────────────────────────────────── */}
       <section className="flex flex-col gap-3">
         <H2 variant="sm" className="flex items-center gap-2 text-muted-foreground">
-          <Brain className="h-4 w-4" /> Memory
+          <Brain className="h-4 w-4" /> 内存
         </H2>
         <Card>
           <CardContent className="flex flex-col gap-4 py-4">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
               <span>
-                External provider:{" "}
+                外部提供商：{" "}
                 <span className="font-mono text-foreground">
-                  {memory?.active || "built-in only"}
+                  {memory?.active || "仅内置"}
                 </span>
               </span>
               {activeMemoryProvider && (
@@ -1213,37 +1251,37 @@ export default function SystemPage() {
                 </Badge>
               )}
               <Link to="/plugins" className="underline">
-                Change in Plugins →
+                在「插件」中修改 →
               </Link>
               <span className="ml-auto">
-                Provider setup:{" "}
+                提供商设置：{" "}
                 <Link to="/plugins" className="underline">
-                  configure in Plugins
+                  在「插件」中配置
                 </Link>
               </span>
             </div>
 
             {activeMemoryProvider?.status === "missing" && (
               <p className="border border-destructive/50 px-3 py-2 text-xs text-destructive">
-                The configured provider is no longer installed. Switch to built-in memory or configure another provider in Plugins.
+                已配置的提供商已不再安装。请切换到内置记忆，或在「插件」中配置其他提供商。
               </p>
             )}
 
             <div className="flex flex-wrap items-center gap-3 border-t border-border pt-3">
               <span className="text-xs text-muted-foreground">
-                Built-in files — MEMORY.md:{" "}
-                {formatBytes(memory?.builtin_files.memory ?? 0)} · USER.md:{" "}
+                内置文件 — MEMORY.md：{" "}
+                {formatBytes(memory?.builtin_files.memory ?? 0)} · USER.md：{" "}
                 {formatBytes(memory?.builtin_files.user ?? 0)}
               </span>
               <div className="flex items-center gap-2 ml-auto">
                 <Button size="sm" ghost className="text-destructive" onClick={() => memoryReset.requestDelete("memory")}>
-                  Reset MEMORY.md
+                  重置 MEMORY.md
                 </Button>
                 <Button size="sm" ghost className="text-destructive" onClick={() => memoryReset.requestDelete("user")}>
-                  Reset USER.md
+                  重置 USER.md
                 </Button>
                 <Button size="sm" ghost className="text-destructive" onClick={() => memoryReset.requestDelete("all")}>
-                  Reset all
+                  全部重置
                 </Button>
               </div>
             </div>
@@ -1254,32 +1292,32 @@ export default function SystemPage() {
       {/* ── Credential pool ───────────────────────────────────────── */}
       <section className="flex flex-col gap-3">
         <H2 variant="sm" className="flex items-center gap-2 text-muted-foreground">
-          <KeyRound className="h-4 w-4" /> Credential pool
+          <KeyRound className="h-4 w-4" /> 凭据池
         </H2>
         <Card>
           <CardContent className="flex flex-col gap-4 py-4">
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
               <div className="grid gap-2">
-                <Label htmlFor="cred-provider">Provider</Label>
+                <Label htmlFor="cred-provider">提供商</Label>
                 <Input id="cred-provider" value={credProvider} onChange={(e) => setCredProvider(e.target.value)} placeholder="openrouter" />
               </div>
               <div className="grid gap-2 sm:col-span-2">
-                <Label htmlFor="cred-key">API key</Label>
+                <Label htmlFor="cred-key">API 密钥</Label>
                 <Input id="cred-key" type="password" value={credKey} onChange={(e) => setCredKey(e.target.value)} placeholder="sk-…" />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="cred-label">Label</Label>
-                <Input id="cred-label" value={credLabel} onChange={(e) => setCredLabel(e.target.value)} placeholder="optional" />
+                <Label htmlFor="cred-label">标签</Label>
+                <Input id="cred-label" value={credLabel} onChange={(e) => setCredLabel(e.target.value)} placeholder="可选" />
               </div>
             </div>
             <div className="flex justify-end">
               <Button size="sm" className="uppercase" onClick={addCredential} disabled={addingCred} prefix={addingCred ? <Spinner /> : undefined}>
-                Add key
+                添加密钥
               </Button>
             </div>
             {pool.length === 0 && (
               <p className="text-sm text-muted-foreground">
-                No pooled credentials. Add one above to enable key rotation.
+                凭据池为空。在上方添加一个即可启用密钥轮换。
               </p>
             )}
             {pool.map((prov) => (
@@ -1291,9 +1329,9 @@ export default function SystemPage() {
                   <div key={`${prov.provider}-${entry.index}`} className="flex items-center gap-3 border border-border bg-background/40 px-3 py-2">
                     <span className="text-sm font-medium">{entry.label}</span>
                     <span className="font-mono text-xs text-muted-foreground">{entry.token_preview}</span>
-                    <Badge tone="outline">{entry.auth_type}</Badge>
-                    {entry.last_status && <Badge tone="secondary">{entry.last_status}</Badge>}
-                    <Button ghost size="icon" className="ml-auto text-destructive" aria-label="Remove credential" onClick={() => credDelete.requestDelete(`${prov.provider}|${entry.index}`)}>
+                    <Badge tone="outline">{CRED_AUTH_ZH[String(entry.auth_type)] ?? entry.auth_type}</Badge>
+                    {entry.last_status && <Badge tone="secondary">{CRED_STATUS_ZH[String(entry.last_status)] ?? entry.last_status}</Badge>}
+                    <Button ghost size="icon" className="ml-auto text-destructive" aria-label="移除凭据" onClick={() => credDelete.requestDelete(`${prov.provider}|${entry.index}`)}>
                       <Trash2 />
                     </Button>
                   </div>
@@ -1307,30 +1345,30 @@ export default function SystemPage() {
       {/* ── Operations ────────────────────────────────────────────── */}
       <section className="flex flex-col gap-3">
         <H2 variant="sm" className="flex items-center gap-2 text-muted-foreground">
-          <Activity className="h-4 w-4" /> Operations
+          <Activity className="h-4 w-4" /> 运维
         </H2>
         <Card>
           <CardContent className="flex flex-wrap gap-2 py-4">
             <Button size="sm" ghost prefix={<Terminal className="h-3.5 w-3.5" />} onClick={() => setConsoleOpen(true)}>
-              Open console
+              打开控制台
             </Button>
             <Button size="sm" ghost prefix={<Stethoscope className="h-3.5 w-3.5" />} onClick={() => runOp(api.runDoctor, "Doctor")}>
-              Run doctor
+              运行诊断
             </Button>
-            <Button size="sm" ghost prefix={<ShieldCheck className="h-3.5 w-3.5" />} onClick={() => runOp(api.runSecurityAudit, "Security audit")}>
-              Security audit
+            <Button size="sm" ghost prefix={<ShieldCheck className="h-3.5 w-3.5" />} onClick={() => runOp(api.runSecurityAudit, "安全审计")}>
+              安全审计
             </Button>
-            <Button size="sm" ghost prefix={<RotateCw className="h-3.5 w-3.5" />} onClick={() => runOp(api.updateSkillsFromHub, "Skills update")}>
-              Update skills
+            <Button size="sm" ghost prefix={<RotateCw className="h-3.5 w-3.5" />} onClick={() => runOp(api.updateSkillsFromHub, "技能更新")}>
+              更新技能
             </Button>
-            <Button size="sm" ghost prefix={<Activity className="h-3.5 w-3.5" />} onClick={() => runOp(api.runPromptSize, "Prompt size")}>
-              Prompt size
+            <Button size="sm" ghost prefix={<Activity className="h-3.5 w-3.5" />} onClick={() => runOp(api.runPromptSize, "提示词大小")}>
+              提示词大小
             </Button>
-            <Button size="sm" ghost prefix={<Database className="h-3.5 w-3.5" />} onClick={() => runOp(api.runDump, "Support dump")}>
-              Support dump
+            <Button size="sm" ghost prefix={<Database className="h-3.5 w-3.5" />} onClick={() => runOp(api.runDump, "支持包导出")}>
+              支持包导出
             </Button>
-            <Button size="sm" ghost prefix={<RotateCw className="h-3.5 w-3.5" />} onClick={() => runOp(api.runConfigMigrate, "Config migrate")}>
-              Migrate config
+            <Button size="sm" ghost prefix={<RotateCw className="h-3.5 w-3.5" />} onClick={() => runOp(api.runConfigMigrate, "配置迁移")}>
+              迁移配置
             </Button>
           </CardContent>
         </Card>
@@ -1339,7 +1377,7 @@ export default function SystemPage() {
           <CardContent className="flex flex-col gap-4 py-4">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
               <div className="grid min-w-0 flex-1 gap-2">
-                <Label>Full backup</Label>
+                <Label>完整备份</Label>
                 <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
                   <Button
                     size="sm"
@@ -1347,7 +1385,7 @@ export default function SystemPage() {
                     prefix={<Database className="h-3.5 w-3.5" />}
                     onClick={() => void runDashboardBackup()}
                   >
-                    Create backup
+                    创建备份
                   </Button>
                   <Button
                     size="sm"
@@ -1362,11 +1400,11 @@ export default function SystemPage() {
                     }
                     onClick={() => void downloadBackup()}
                   >
-                    Download backup
+                    下载备份
                   </Button>
                   <span
                     className="min-w-0 truncate text-xs text-muted-foreground"
-                    title={pendingBackupArchive ?? "No backup created yet"}
+                    title={pendingBackupArchive ?? "尚未创建备份"}
                   >
                     {backupFileName(pendingBackupArchive)}
                   </span>
@@ -1376,7 +1414,7 @@ export default function SystemPage() {
 
             <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-end">
               <div className="grid min-w-0 flex-1 gap-2">
-                <Label>Restore from backup upload</Label>
+                <Label>从上传的备份恢复</Label>
                 <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
                   <Button
                     type="button"
@@ -1386,13 +1424,13 @@ export default function SystemPage() {
                     prefix={<Upload className="h-3.5 w-3.5" />}
                     onClick={() => importUploadInputRef.current?.click()}
                   >
-                    Choose restore zip
+                    选择恢复用的 zip
                   </Button>
                   <span
                     className="min-w-0 truncate text-xs text-muted-foreground"
-                    title={importFile?.name ?? "No backup archive selected"}
+                    title={importFile?.name ?? "未选择备份归档"}
                   >
-                    {importFile?.name ?? "No backup archive selected"}
+                    {importFile?.name ?? "未选择备份归档"}
                   </span>
                 </div>
               </div>
@@ -1406,13 +1444,13 @@ export default function SystemPage() {
                   setImportConfirmTarget({ kind: "upload", file: importFile });
                 }}
               >
-                Restore upload
+                恢复上传
               </Button>
             </div>
 
             <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-end">
               <div className="grid min-w-0 flex-1 gap-2">
-                <Label htmlFor="import-path">Restore from backups path</Label>
+                <Label htmlFor="import-path">从备份目录恢复</Label>
                 <Input
                   id="import-path"
                   value={importPath}
@@ -1431,16 +1469,16 @@ export default function SystemPage() {
                   setImportConfirmTarget({ kind: "path", path });
                 }}
               >
-                Restore path
+                恢复路径
               </Button>
             </div>
             <ConfirmDialog
               open={!!importConfirmTarget}
-              title="Restore full Hermes backup?"
-              description={`This will overwrite your current Hermes configuration, skills, sessions, and data with the contents of ${backupImportLabel(importConfirmTarget)}. This cannot be undone.`}
+              title="恢复完整的 Hermes 备份？"
+              description={`这将用 ${backupImportLabel(importConfirmTarget)} 的内容覆盖当前的 Hermes 配置、技能、会话和数据。此操作无法撤销。`}
               destructive
-              confirmLabel="Restore"
-              cancelLabel="Cancel"
+              confirmLabel="恢复"
+              cancelLabel="取消"
               onCancel={() => setImportConfirmTarget(null)}
               onConfirm={() => {
                 const target = importConfirmTarget;
@@ -1460,11 +1498,9 @@ export default function SystemPage() {
               <div className="flex items-start gap-2">
                 <Share2 className="h-4 w-4 mt-0.5 text-muted-foreground" />
                 <div className="flex flex-col">
-                  <span className="text-sm font-medium">Share debug report</span>
+                  <span className="text-sm font-medium">分享调试报告</span>
                   <span className="text-xs text-muted-foreground max-w-prose">
-                    Uploads system info + logs to a public paste service and
-                    returns links to send the Hermes team. Pastes auto-delete
-                    after 6 hours.
+                    将系统信息和日志上传到公共粘贴服务，并返回可发给 Hermes 团队的链接。粘贴内容将在 6 小时后自动删除。
                   </span>
                 </div>
               </div>
@@ -1480,7 +1516,7 @@ export default function SystemPage() {
                 }
                 onClick={() => void runDebugShare()}
               >
-                {sharing ? "Uploading…" : "Generate share link"}
+                {sharing ? "上传中…" : "生成分享链接"}
               </Button>
             </div>
 
@@ -1496,7 +1532,7 @@ export default function SystemPage() {
                 className="cursor-pointer select-none text-xs font-normal normal-case tracking-normal text-muted-foreground"
                 htmlFor="share-redact"
               >
-                Redact credential-shaped tokens before upload (recommended)
+                上传前打码疑似凭据内容（推荐）
               </Label>
             </div>
 
@@ -1504,11 +1540,11 @@ export default function SystemPage() {
               <div className="flex flex-col gap-2 border-t border-border pt-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Badge tone="success">uploaded</Badge>
+                    <Badge tone="success">已上传</Badge>
                     {shareResult.redacted ? (
-                      <Badge tone="outline">redacted</Badge>
+                      <Badge tone="outline">已脱敏</Badge>
                     ) : (
-                      <Badge tone="warning">not redacted</Badge>
+                      <Badge tone="warning">未脱敏</Badge>
                     )}
                     <span className="flex items-center gap-1 text-xs text-muted-foreground">
                       <Clock className="h-3 w-3" />
@@ -1536,7 +1572,7 @@ export default function SystemPage() {
                         )
                       }
                     >
-                      Copy all
+                      全部复制
                     </Button>
                   )}
                 </div>
@@ -1583,16 +1619,16 @@ export default function SystemPage() {
       {/* ── Checkpoints ───────────────────────────────────────────── */}
       <section className="flex flex-col gap-3">
         <H2 variant="sm" className="flex items-center gap-2 text-muted-foreground">
-          <Database className="h-4 w-4" /> Checkpoints
+          <Database className="h-4 w-4" /> 检查点
         </H2>
         <Card>
           <CardContent className="flex items-center justify-between py-4">
             <span className="text-sm text-muted-foreground">
-              {checkpoints?.sessions.length ?? 0} session(s) ·{" "}
+              {checkpoints?.sessions.length ?? 0} 个会话 ·{" "}
               {formatBytes(checkpoints?.total_bytes ?? 0)}
             </span>
             <Button size="sm" ghost className="text-destructive" disabled={!checkpoints?.sessions.length} prefix={<Trash2 className="h-3.5 w-3.5" />} onClick={() => checkpointsPrune.requestDelete("all")}>
-              Prune
+              清理
             </Button>
           </CardContent>
         </Card>
@@ -1602,16 +1638,16 @@ export default function SystemPage() {
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <H2 variant="sm" className="flex items-center gap-2 text-muted-foreground">
-            <Terminal className="h-4 w-4" /> Shell hooks
+            <Terminal className="h-4 w-4" /> Shell 钩子
           </H2>
           <Button size="sm" className="uppercase" prefix={<Plus className="h-3.5 w-3.5" />} onClick={() => setHookModalOpen(true)}>
-            New hook
+            新建钩子
           </Button>
         </div>
         {(!hooks || hooks.hooks.length === 0) && (
           <Card>
             <CardContent className="py-6 text-center text-sm text-muted-foreground">
-              No shell hooks configured.
+              尚未配置 Shell 钩子。
             </CardContent>
           </Card>
         )}
@@ -1633,7 +1669,7 @@ export default function SystemPage() {
                 ghost
                 size="icon"
                 className="text-destructive"
-                aria-label="Remove hook"
+                aria-label="移除钩子"
                 onClick={() =>
                   hookDelete.requestDelete(`${h.event}|${h.command ?? ""}`)
                 }
