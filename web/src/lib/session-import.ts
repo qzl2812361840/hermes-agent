@@ -18,14 +18,14 @@ function normalizeImportSessions(value: unknown): ImportableSession[] {
       !!item && typeof item === "object" && !Array.isArray(item),
   );
   if (sessions.length !== candidate.length) {
-    throw new Error("Expected exported session JSON or JSONL");
+    throw new Error("应为导出的会话 JSON 或 JSONL");
   }
   return sessions;
 }
 
 export function parseImportSessions(text: string): ImportableSession[] {
   const trimmed = text.trim();
-  if (!trimmed) throw new Error("File is empty");
+  if (!trimmed) throw new Error("文件为空");
 
   try {
     return normalizeImportSessions(JSON.parse(trimmed));

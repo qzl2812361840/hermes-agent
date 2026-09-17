@@ -29,8 +29,8 @@ export type { ConnectionState, GatewayEvent, GatewayEventName };
 export class GatewayClient extends JsonRpcGatewayClient {
   constructor() {
     super({
-      closedErrorMessage: "WebSocket closed",
-      connectErrorMessage: "WebSocket connection failed",
+      closedErrorMessage: "WebSocket 已关闭",
+      connectErrorMessage: "WebSocket 连接失败",
       notConnectedErrorMessage: "gateway not connected",
       onSocketClose: (event) => maybeReloadForLoopbackWsAuthFailure(event.code),
       requestIdPrefix: "w",

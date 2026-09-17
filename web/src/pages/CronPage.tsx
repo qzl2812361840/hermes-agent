@@ -223,7 +223,7 @@ function CronAdvancedFields({
   return (
     <details className="border border-border bg-background/30 p-3" open>
       <summary className="cursor-pointer text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        Advanced fields
+        高级字段
       </summary>
       <div className="mt-3 grid gap-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -260,7 +260,7 @@ function CronAdvancedFields({
         </div>
 
         <div className="grid gap-1">
-          <Label htmlFor={`${idPrefix}-base-url`}>Base URL override</Label>
+          <Label htmlFor={`${idPrefix}-base-url`}>Base URL 覆盖</Label>
           <Input
             id={`${idPrefix}-base-url`}
             placeholder="https://api.example.com/v1"
@@ -328,7 +328,7 @@ function CronAdvancedFields({
               available={availableToolsets}
               selected={form.enabled_toolsets}
               onChange={(v) => update("enabled_toolsets", v)}
-              emptyLabel="No toolsets available."
+              emptyLabel="没有可用的工具集。"
             />
           </div>
         </div>
@@ -416,19 +416,19 @@ function CronJobFormFields({
         {onlyLocalAvailable && (
           <p className="text-xs text-muted-foreground">
             {t.cron.delivery.noneConfigured ??
-              "No messaging platforms configured. Set one up under Channels to deliver reports."}
+              "未配置消息平台。请在「渠道」中配置一个以接收报告。"}
           </p>
         )}
       </div>
 
       <div className="grid gap-2">
-        <Label htmlFor={`${idPrefix}-skills`}>Skills (optional)</Label>
+        <Label htmlFor={`${idPrefix}-skills`}>技能（可选）</Label>
         <NameCheckboxPicker
           id={`${idPrefix}-skills`}
           available={availableSkills}
           selected={form.skills}
           onChange={(skills) => update("skills", skills)}
-          emptyLabel="No skills installed for this profile."
+          emptyLabel="此档案未安装技能。"
         />
         <p className="text-xs text-muted-foreground">
           Selected skills are loaded before the prompt runs — the cron
@@ -461,7 +461,7 @@ function getJobTitle(job: CronJob): string {
   const script = asText(job.script);
   if (script) return truncateText(script, 60);
 
-  return job.id || "Cron job";
+  return job.id || "定时任务";
 }
 
 function getJobScheduleDisplay(
@@ -469,7 +469,7 @@ function getJobScheduleDisplay(
   strings: ScheduleDescribeStrings,
 ): string {
   // Prefer a structured render so cron expressions like
-  // ``30 14 * * 1,3,5`` surface as "Weekly on Mon, Wed, Fri at 14:30"
+  // ``30 14 * * 1,3,5`` surface as "每周一、三、五 14:30"
   // in the list instead of the raw five-field gibberish. Falls back
   // through the existing chain (``schedule_display`` from the backend,
   // then the structured ``display`` field, then the raw ``expr``) so
@@ -485,15 +485,24 @@ function getJobState(job: CronJob): string {
   return asText(job.state) || (job.enabled === false ? "disabled" : "scheduled");
 }
 
+const CRON_STATE_ZH: Record<string, string> = {
+  paused: "已暂停",
+  scheduled: "已调度",
+  disabled: "已禁用",
+  running: "运行中",
+  active: "活跃",
+  completed: "已完成",
+};
+
 function getRepeatDisplay(job: CronJob): string {
   const repeat = job.repeat;
-  if (!repeat || repeat.times == null) return "forever";
+  if (!repeat || repeat.times == null) return "永久";
   const completed = repeat.completed ?? 0;
-  return completed > 0 ? `${completed}/${repeat.times}` : `${repeat.times} times`;
+  return completed > 0 ? `${completed}/${repeat.times}` : `${repeat.times} 次`;
 }
 
 function getJobMode(job: CronJob): string {
-  if (job.no_agent) return "no_agent";
+  if (job.no_agent) return "仅脚本";
   if (job.script) return "script+agent";
   return "agent";
 }
@@ -907,8 +916,8 @@ export default function CronPage() {
         value={view}
         onChange={(v) => setView(v as "jobs" | "blueprints")}
         options={[
-          { value: "jobs", label: "Jobs" },
-          { value: "blueprints", label: "Blueprints" },
+          { value: "jobs", label: "任务" },
+          { value: "blueprints", label: "蓝图" },
         ]}
       />
 
@@ -967,7 +976,7 @@ export default function CronPage() {
 
             <div className="min-h-0 overflow-y-auto p-5 grid gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="cron-profile">Profile</Label>
+                <Label htmlFor="cron-profile">档案</Label>
                 <Select
                   id="cron-profile"
                   value={createProfile}
@@ -1036,7 +1045,7 @@ export default function CronPage() {
                 id="edit-cron-title"
                 className="font-mondwest text-display text-base tracking-wider"
               >
-                Edit job
+                编辑任务
               </h2>
             </header>
 
@@ -1065,7 +1074,7 @@ export default function CronPage() {
                   disabled={saving}
                   prefix={saving ? <Spinner /> : undefined}
                 >
-                  {saving ? t.common.loading : "Save changes"}
+                  {saving ? t.common.loading : "保存更改"}
                 </Button>
               </div>
             </div>
@@ -1085,13 +1094,13 @@ export default function CronPage() {
           </H2>
 
           <div className="grid gap-1 min-w-[220px]">
-            <Label htmlFor="cron-profile-filter">Profile</Label>
+            <Label htmlFor="cron-profile-filter">档案</Label>
             <Select
               id="cron-profile-filter"
               value={selectedProfile}
               onValueChange={(v) => setSelectedProfile(v)}
             >
-              <SelectOption value="all">All profiles</SelectOption>
+              <SelectOption value="all">所有档案</SelectOption>
               {profiles.map((profile) => (
                 <SelectOption key={profile.name} value={profile.name}>
                   {profileLabel(profile.name)}
@@ -1145,7 +1154,7 @@ export default function CronPage() {
                       {title}
                     </span>
                     <Badge tone={STATUS_TONE[state] ?? "secondary"}>
-                      {state}
+                      {CRON_STATE_ZH[state] ?? state}
                     </Badge>
                     {lastResult && lastResult.status !== "ok" && (
                       <Badge
@@ -1158,13 +1167,13 @@ export default function CronPage() {
                     )}
                     <Badge tone="outline">{profileLabel(profile)}</Badge>
                     {deliver && deliver !== "local" && (
-                      <Badge tone="outline">{deliver}</Badge>
+                      <Badge tone="outline">{deliver === "origin" ? "来源会话" : deliver}</Badge>
                     )}
                     {Array.isArray(job.skills) && job.skills.length > 0 && (
                       <Badge tone="outline" title={job.skills.join(", ")}>
                         {job.skills.length === 1
                           ? job.skills[0]
-                          : `${job.skills.length} skills`}
+                          : `${job.skills.length} 个技能`}
                       </Badge>
                     )}
                     {mode !== "agent" && (
@@ -1172,12 +1181,12 @@ export default function CronPage() {
                     )}
                     {modelDisplay && (
                       <Badge tone="outline" title={modelDisplay}>
-                        model
+                        模型
                       </Badge>
                     )}
                     {toolsets.length > 0 && (
                       <Badge tone="outline" title={toolsets.join(", ")}>
-                        {toolsets.length} toolsets
+                        {toolsets.length} 个工具集
                       </Badge>
                     )}
                   </div>
@@ -1190,7 +1199,7 @@ export default function CronPage() {
                     <span className="font-mono-ui">
                       {getJobScheduleDisplay(job, scheduleDescribeStrings)}
                     </span>
-                    <span>repeat: {getRepeatDisplay(job)}</span>
+                    <span>重复：{getRepeatDisplay(job)}</span>
                     <span>
                       {t.cron.last}: {formatTime(job.last_run_at)}
                     </span>
@@ -1255,8 +1264,8 @@ export default function CronPage() {
                   <Button
                     ghost
                     size="icon"
-                    title="Edit job"
-                    aria-label="Edit job"
+                    title="编辑任务"
+                    aria-label="编辑任务"
                     onClick={() => openEditModal(job)}
                   >
                     <Pencil />

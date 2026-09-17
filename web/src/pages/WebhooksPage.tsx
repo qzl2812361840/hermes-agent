@@ -47,8 +47,8 @@ function CopyButton({ value }: { value: string }) {
     <Button
       ghost
       size="icon"
-      title="Copy"
-      aria-label="Copy"
+      title="复制"
+      aria-label="复制"
       onClick={handleCopy}
       className="text-muted-foreground hover:text-foreground"
     >
@@ -95,7 +95,7 @@ export default function WebhooksPage() {
     return api
       .getWebhooks()
       .then(setData)
-      .catch(() => showToast("Failed to load webhooks", "error"))
+      .catch(() => showToast("加载 Webhook 失败", "error"))
       .finally(() => setLoading(false));
   }, [showToast]);
 
@@ -186,7 +186,7 @@ export default function WebhooksPage() {
 
   const handleCreate = async () => {
     if (!name.trim()) {
-      showToast("Name required", "error");
+      showToast("名称必填", "error");
       return;
     }
     setCreating(true);
@@ -251,7 +251,7 @@ export default function WebhooksPage() {
     ),
   });
 
-  // Put "New subscription" button in page header
+  // Put "新建订阅" button in page header
   useLayoutEffect(() => {
     setEnd(
       <Button
@@ -264,7 +264,7 @@ export default function WebhooksPage() {
           setCreateModalOpen(true);
         }}
       >
-        New subscription
+        新建订阅
       </Button>,
     );
     return () => {
@@ -290,11 +290,11 @@ export default function WebhooksPage() {
         open={webhookDelete.isOpen}
         onCancel={webhookDelete.cancel}
         onConfirm={webhookDelete.confirm}
-        title="Delete webhook"
+        title="删除 Webhook"
         description={
           pendingName
             ? `"${pendingName}" — this will permanently remove this webhook subscription.`
-            : "This will permanently remove this webhook subscription."
+            : "这将永久移除此 Webhook 订阅。"
         }
         loading={webhookDelete.isDeleting}
       />
@@ -325,7 +325,7 @@ export default function WebhooksPage() {
                 id="create-webhook-title"
                 className="font-mondwest text-display text-base tracking-wider"
               >
-                New subscription
+                新建订阅
               </h2>
             </header>
 
@@ -337,7 +337,7 @@ export default function WebhooksPage() {
                 </p>
 
                 <div className="grid gap-2">
-                  <Label>Webhook URL</Label>
+                  <Label>Webhook 地址</Label>
                   <div className="flex items-center gap-2 border border-border bg-background/40 px-3 py-2">
                     <span className="flex-1 min-w-0 truncate font-mono text-xs">
                       {created.url}
@@ -347,7 +347,7 @@ export default function WebhooksPage() {
                 </div>
 
                 <div className="grid gap-2">
-                  <Label>Secret (shown once)</Label>
+                  <Label>密钥（仅显示一次）</Label>
                   <div className="flex items-center gap-2 border border-warning/40 bg-warning/10 px-3 py-2">
                     <span className="flex-1 min-w-0 truncate font-mono text-xs">
                       {created.secret}
@@ -373,7 +373,7 @@ export default function WebhooksPage() {
                   <Input
                     id="webhook-name"
                     autoFocus
-                    placeholder="e.g. github-push"
+                    placeholder="例如 github-push"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                   />
@@ -383,7 +383,7 @@ export default function WebhooksPage() {
                   <Label htmlFor="webhook-description">Description</Label>
                   <Input
                     id="webhook-description"
-                    placeholder="What this webhook does (optional)"
+                    placeholder="这个 Webhook 的用途（可选）"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                   />
@@ -401,7 +401,7 @@ export default function WebhooksPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="webhook-deliver">Deliver to</Label>
+                    <Label htmlFor="webhook-deliver">投递到</Label>
                     <Select
                       id="webhook-deliver"
                       value={deliver}
@@ -413,13 +413,13 @@ export default function WebhooksPage() {
                       <SelectOption value="slack">Slack</SelectOption>
                       <SelectOption value="email">Email</SelectOption>
                       <SelectOption value="github_comment">
-                        GitHub comment
+                        GitHub 评论
                       </SelectOption>
                     </Select>
                   </div>
 
                   <div className="grid gap-2">
-                    <Label htmlFor="webhook-deliver-only">Deliver only</Label>
+                    <Label htmlFor="webhook-deliver-only">仅投递</Label>
                     <label className="flex items-center gap-2 text-sm text-muted-foreground h-9">
                       <input
                         id="webhook-deliver-only"
@@ -427,7 +427,7 @@ export default function WebhooksPage() {
                         checked={deliverOnly}
                         onChange={(e) => setDeliverOnly(e.target.checked)}
                       />
-                      Skip the agent, deliver payload directly
+                      跳过智能体，直接投递原始负载
                     </label>
                   </div>
                 </div>
@@ -437,7 +437,7 @@ export default function WebhooksPage() {
                   <textarea
                     id="webhook-prompt"
                     className="flex min-h-[80px] w-full border border-border bg-background/40 px-3 py-2 text-sm font-courier shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-foreground/30 focus-visible:border-foreground/25"
-                    placeholder="Instructions for the agent when this webhook fires (optional)"
+                    placeholder="Webhook 触发时给智能体的指令（可选）"
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
                   />
@@ -466,7 +466,7 @@ export default function WebhooksPage() {
             <div className="flex items-start gap-3">
               <Webhook className="h-5 w-5 shrink-0 text-warning" />
               <div className="flex flex-col gap-1">
-                <span className="font-medium">Webhook receiver disabled</span>
+                <span className="font-medium">Webhook 接收器已禁用</span>
                 <span className="text-muted-foreground">
                   Webhooks are their own gateway platform. Enable them here to
                   accept incoming HTTP events; chat channels are only needed
@@ -482,7 +482,7 @@ export default function WebhooksPage() {
               disabled={enabling}
               prefix={enabling ? <Spinner /> : <Webhook className="h-4 w-4" />}
             >
-              {enabling ? "Enabling…" : "Enable webhooks"}
+              {enabling ? "Enabling…" : "启用 Webhook"}
             </Button>
           </CardContent>
         </Card>
@@ -514,7 +514,7 @@ export default function WebhooksPage() {
               disabled={restarting}
               prefix={restarting ? <Spinner /> : <RotateCw className="h-4 w-4" />}
             >
-              {restarting ? "Restarting…" : "Restart gateway"}
+              {restarting ? "Restarting…" : "重启网关"}
             </Button>
           </CardContent>
         </Card>
@@ -526,18 +526,18 @@ export default function WebhooksPage() {
           className="flex items-center gap-2 text-muted-foreground"
         >
           <Webhook className="h-4 w-4" />
-          Subscriptions ({subscriptions.length})
+          订阅（{subscriptions.length}）
         </H2>
 
         <p className="text-xs text-muted-foreground -mt-1">
-          Subscription changes hot-reload once the webhook receiver is running.
-          Disabled subscriptions reject incoming events.
+          Webhook 接收器运行后，订阅变更会热加载。
+          已禁用的订阅会拒绝收到的事件。
         </p>
 
         {subscriptions.length === 0 && (
           <Card>
             <CardContent className="py-8 text-center text-sm text-muted-foreground">
-              No webhook subscriptions yet.
+              暂无 Webhook 订阅。
             </CardContent>
           </Card>
         )}

@@ -386,7 +386,15 @@ TASK_COMPLETION_GUIDANCE = (
     "If a tool, install, or network call fails and blocks the real path, say so directly and try an alternative "
     "(different package manager, different approach, ask the user). NEVER substitute plausible-looking fabricated "
     "output (made-up data, invented file contents, synthesised API responses) for results you couldn't actually "
-    "produce. Reporting a blocker honestly is always better than inventing a result."
+    "produce. Reporting a blocker honestly is always better than inventing a result.\n"
+    "# No mid-task stop-and-ask (GaNiu rule)\n"
+    "NEVER end a turn by asking the user whether to continue, or by proposing to finish 'later', 'tomorrow', or in "
+    "a follow-up. Asking 'want me to continue?' mid-task is a FAILURE, not a checkpoint. A task is done only when "
+    "the entire requested deliverable is complete and verified with real tool output. If steps remain, keep working "
+    "— use more tool calls, more rounds, more attempts — until everything is done in this same turn. Only stop when "
+    "there is genuinely nothing left to do, and then report the finished result, not a question. If a blocker is "
+    "truly insurmountable (no tool can do it, no workaround exists), report the blocker once with what you tried — "
+    "never ask 'should I continue?'."
 )
 
 # Universal parallel-tool-call guidance (ALL models): the runtime already executes independent calls

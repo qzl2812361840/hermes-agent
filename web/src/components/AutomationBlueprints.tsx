@@ -125,7 +125,7 @@ function BlueprintCard({
             size="sm"
             onClick={() => setOpen((o) => !o)}
           >
-            {open ? "Cancel" : "Set up"}
+            {open ? "Cancel" : "设置"}
           </Button>
         </div>
 
@@ -155,7 +155,7 @@ function BlueprintCard({
                 disabled={submitting}
                 prefix={submitting ? <Spinner /> : <Clock />}
               >
-                Schedule it
+                安排定时
               </Button>
             </div>
           </div>
@@ -197,12 +197,12 @@ export function AutomationBlueprints({ profile, onCreated }: AutomationBlueprint
   if (blueprints === null) {
     return (
       <div className="flex items-center gap-2 opacity-70">
-        <Spinner className="h-4 w-4" /> Loading blueprints…
+        <Spinner className="h-4 w-4" /> 正在加载蓝图…
       </div>
     );
   }
   if (blueprints.length === 0) {
-    return <p className="opacity-70">No automation blueprints available.</p>;
+    return <p className="opacity-70">暂无自动化蓝图。</p>;
   }
 
   return (

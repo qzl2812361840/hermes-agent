@@ -50,4 +50,12 @@ describe('shouldPassThroughToGlobalHandler', () => {
     expect(shouldPassThroughToGlobalHandler('', key({ pageUp: true }))).toBe(true)
     expect(shouldPassThroughToGlobalHandler('', key({ pageDown: true }))).toBe(true)
   })
+
+  it('passes through Ctrl+L so the PTY force-redraw ping never types a stray "l"', () => {
+    // TUI_FORCE_REDRAW (\x0c) is written on every dashboard reattach and
+    // decodes to ctrl+l; the composer must hand it to the global handler
+    // (full redraw) instead of inserting "l" into the draft.
+    expect(shouldPassThroughToGlobalHandler('l', key({ ctrl: true }))).toBe(true)
+    expect(shouldPassThroughToGlobalHandler('l', key({ ctrl: true }), parseVoiceRecordKey('ctrl+o'))).toBe(true)
+  })
 })

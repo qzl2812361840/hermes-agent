@@ -37,11 +37,26 @@ const MEMORY_PROVIDER_BUILTIN = "__hermes_memory_builtin__";
 
 type MemoryFormValue = string | boolean | number;
 
+const SOURCE_ZH: Record<string, string> = {
+  basic: "内置",
+  user: "用户",
+  "self-hosted": "自托管",
+  nous: "Nous",
+};
+
+const RUNTIME_ZH: Record<string, string> = {
+  enabled: "已启用",
+  disabled: "已禁用",
+  missing: "缺失",
+  active: "已启用",
+  inactive: "未启用",
+};
+
 const MEMORY_STATUS_LABEL: Record<MemoryProviderInfo["status"], string> = {
-  ready: "ready",
-  needs_config: "needs setup",
-  unavailable: "unavailable",
-  missing: "missing",
+  ready: "就绪",
+  needs_config: "需要配置",
+  unavailable: "不可用",
+  missing: "缺失",
 };
 
 const MEMORY_STATUS_TONE: Record<MemoryProviderInfo["status"], "success" | "warning" | "destructive" | "secondary"> = {
@@ -87,7 +102,7 @@ function SetupCommandBlock({ code, label }: { code: string; label: string }) {
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between gap-2">
         <span className="text-[0.6875rem] text-muted-foreground">{label}</span>
-        <CopyButton text={code} />
+        <CopyButton text={code} label="复制" />
       </div>
       <div className="border border-border bg-background/40 px-3 py-2 font-mono text-[0.6875rem] leading-relaxed">
         <code className="break-all">{code}</code>
@@ -116,7 +131,7 @@ function MemoryProviderSetupResults({ results }: { results: MemoryProviderSetupR
 
   return (
     <div className="grid gap-2 border border-border bg-background/20 p-3">
-      <p className="text-muted-foreground">Setup results</p>
+      <p className="text-muted-foreground">设置结果</p>
       {results.map((result, index) => {
         const detail = result.stderr || result.stdout;
         return (
@@ -194,8 +209,8 @@ function MemoryProviderSetupHint({
     >
       <p className={isBlocked ? "text-destructive" : "text-muted-foreground"}>
         {needsDependencySetup
-          ? "Finish these setup steps before Hermes can activate this provider."
-          : "Provider dependency setup completed."}
+          ? "完成以下设置步骤后 Hermes 才能启用该提供商。"
+          : "提供商依赖设置完成。"}
       </p>
 
       {needsDependencySetup ? (
@@ -207,14 +222,14 @@ function MemoryProviderSetupHint({
         >
           <span className="inline-flex items-center gap-2">
             {installing ? <Spinner /> : null}
-            {installing ? "Installing provider dependencies" : "Install provider dependencies"}
+            {installing ? "正在安装提供商依赖" : "安装提供商依赖"}
           </span>
         </Button>
       ) : null}
 
       {installing ? (
         <div className="flex items-center gap-2 text-muted-foreground">
-          <Spinner /> Running provider setup. This may take a minute…
+          <Spinner /> 正在执行提供商设置，可能需要一分钟…
         </div>
       ) : null}
 
@@ -229,13 +244,13 @@ function MemoryProviderSetupHint({
               </p>
               {dep.install ? (
                 <SetupCommandBlock
-                  label={dep.name ? `Install ${dep.name}` : "Install dependency"}
+                  label={dep.name ? `Install ${dep.name}` : "安装依赖"}
                   code={dep.install}
                 />
               ) : null}
               {dep.check ? (
                 <SetupCommandBlock
-                  label={dep.name ? `Verify ${dep.name}` : "Verify dependency"}
+                  label={dep.name ? `Verify ${dep.name}` : "验证依赖"}
                   code={dep.check}
                 />
               ) : null}
@@ -244,7 +259,7 @@ function MemoryProviderSetupHint({
 
           {setup.pip_dependencies.length ? (
             <div className="grid gap-2">
-              <p className="text-muted-foreground">Python dependencies</p>
+              <p className="text-muted-foreground">Python 依赖</p>
               <div className="flex flex-wrap gap-2">
                 {setup.pip_dependencies.map((dep) => (
                   <code
@@ -368,7 +383,7 @@ export default function PluginsPage() {
           if (!cancelled) {
             setMemoryConfig(null);
             setMemoryValues({});
-            showToast(e instanceof Error ? e.message : "Failed to load provider config", "error");
+            showToast(e instanceof Error ? e.message : "加载提供商配置失败", "error");
           }
         })
         .finally(() => {
@@ -401,7 +416,7 @@ export default function PluginsPage() {
       setInstallId("");
       await loadHub();
     } catch (e) {
-      showToast(e instanceof Error ? e.message : "Install failed", "error");
+      showToast(e instanceof Error ? e.message : "安装失败", "error");
     } finally {
       setInstallBusy(false);
     }
@@ -438,7 +453,7 @@ export default function PluginsPage() {
       );
       await loadHub();
     } catch (e) {
-      showToast(e instanceof Error ? e.message : "Rescan failed", "error");
+      showToast(e instanceof Error ? e.message : "重新扫描失败", "error");
     } finally {
       setRescanBusy(false);
     }
@@ -478,7 +493,7 @@ export default function PluginsPage() {
       showToast(t.pluginsPage.savedProviders, "success");
       await loadHub();
     } catch (e) {
-      showToast(e instanceof Error ? e.message : "Save failed", "error");
+      showToast(e instanceof Error ? e.message : "保存失败", "error");
     } finally {
       setMemoryBusy(false);
     }
@@ -506,11 +521,11 @@ export default function PluginsPage() {
         const names = Array.from(new Set(failed.map((row) => row.name))).join(", ");
         showToast(`Provider setup failed: ${names || provider}. See setup results below.`, "error");
       } else {
-        showToast("Provider setup finished", "success");
+        showToast("提供商设置完成", "success");
       }
       await loadHub(provider);
     } catch (e) {
-      showToast(e instanceof Error ? e.message : "Provider setup failed", "error");
+      showToast(e instanceof Error ? e.message : "提供商设置失败", "error");
     } finally {
       setMemorySetupBusy(false);
     }
@@ -523,7 +538,7 @@ export default function PluginsPage() {
       showToast(t.pluginsPage.savedProviders, "success");
       await loadHub();
     } catch (e) {
-      showToast(e instanceof Error ? e.message : "Save failed", "error");
+      showToast(e instanceof Error ? e.message : "保存失败", "error");
     } finally {
       setContextBusy(false);
     }
@@ -585,7 +600,7 @@ export default function PluginsPage() {
             <CardHeader>
               <CardTitle>{t.pluginsPage.providersHeading}</CardTitle>
               <p className="text-xs tracking-[0.08em] text-text-tertiary">
-                Configure memory providers and runtime context engine selection.
+                配置记忆提供商与运行时上下文引擎。
               </p>
             </CardHeader>
 
@@ -601,10 +616,10 @@ export default function PluginsPage() {
                         </Badge>
                       )}
                       {selectedMemoryName && selectedMemoryName === providers.memory_provider && (
-                        <Badge tone="outline">active</Badge>
+                        <Badge tone="outline">已启用</Badge>
                       )}
                       {!selectedMemoryName && !providers.memory_provider && (
-                        <Badge tone="success">active</Badge>
+                        <Badge tone="success">已启用</Badge>
                       )}
                     </div>
 
@@ -634,7 +649,7 @@ export default function PluginsPage() {
 
                   {activeMemoryInfo?.status === "missing" && (
                     <p className="border border-destructive/50 px-3 py-2 text-xs text-destructive">
-                      Active provider {providers.memory_provider} is no longer installed. Select another provider and save.
+                      当前记忆提供商 {providers.memory_provider} 已不再安装。请选择其他提供商并保存。
                     </p>
                   )}
 
@@ -661,13 +676,13 @@ export default function PluginsPage() {
 
                   {selectedMemoryName && memoryConfigBusy && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Spinner /> Loading provider settings…
+                      <Spinner /> 正在加载提供商设置…
                     </div>
                   )}
 
                   {selectedMemoryName && !memoryConfigBusy && visibleMemoryFields.length === 0 && (
                     <p className="text-xs text-muted-foreground">
-                      This provider does not expose dashboard settings.
+                      该提供商没有可在此面板配置的设置。
                     </p>
                   )}
 
@@ -737,7 +752,7 @@ export default function PluginsPage() {
                                   value={String(value ?? "")}
                                   placeholder={
                                     field.kind === "secret" && field.is_set
-                                      ? "Leave blank to keep existing value"
+                                      ? "留空则保留现有值"
                                       : field.placeholder
                                   }
                                   onChange={(event) =>
@@ -751,7 +766,7 @@ export default function PluginsPage() {
                                   <Button
                                     ghost
                                     size="icon"
-                                    aria-label={secretIsVisible ? "Hide secret" : "Show secret"}
+                                    aria-label={secretIsVisible ? "隐藏密钥" : "显示密钥"}
                                     onClick={() =>
                                       setSecretVisible((current) => ({
                                         ...current,
@@ -785,7 +800,7 @@ export default function PluginsPage() {
                     onClick={() => void onSaveMemoryProvider()}
                     prefix={memoryBusy ? <Spinner /> : undefined}
                   >
-                    Save memory provider
+                    保存记忆提供商
                   </Button>
                 </div>
 
@@ -816,7 +831,7 @@ export default function PluginsPage() {
                     onClick={() => void onSaveContextEngine()}
                     prefix={contextBusy ? <Spinner /> : undefined}
                   >
-                    Save context engine
+                    保存上下文引擎
                   </Button>
                 </div>
               </div>
@@ -1097,12 +1112,12 @@ function PluginRowCard(props: PluginRowCardProps) {
             <span className="truncate font-semibold">{row.name}</span>
 
             <Badge tone="outline">
-              {t.pluginsPage.sourceBadge}: {row.source}
+              {t.pluginsPage.sourceBadge}: {SOURCE_ZH[row.source] ?? row.source}
             </Badge>
 
             <Badge tone="outline">v{row.version || "—"}</Badge>
 
-            <Badge tone={badgeTone}>{row.runtime_status}</Badge>
+            <Badge tone={badgeTone}>{RUNTIME_ZH[row.runtime_status] ?? row.runtime_status}</Badge>
 
             {row.auth_required ? (
               <Badge tone="destructive">{t.pluginsPage.authRequired}</Badge>

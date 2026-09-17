@@ -131,7 +131,7 @@ function sourceBelongsToCategory(
 function sourceLabel(source: string): string {
   switch (source) {
     case "api_server":
-      return "API server";
+      return "API 服务器";
     case "acp":
       return "ACP";
     case "cli":
@@ -248,7 +248,7 @@ function ToolCallBlock({
 // session timeline (#29824 — "WebUI can show context compaction block
 // instead of latest assistant response after compression"), so we
 // detect them here and downgrade them to a muted, clearly-labelled
-// "Context handoff" row.
+// "上下文交接" row.
 //
 // Keep these prefixes (and the END marker below) in sync with
 // ``SUMMARY_PREFIX`` / ``LEGACY_SUMMARY_PREFIX`` and the
@@ -266,7 +266,7 @@ const COMPACTION_PREFIXES = [
 // prefix on the first tail message instead of inserting a standalone
 // row. We split on this marker so the WebUI still shows the original
 // assistant reply as its own readable bubble — otherwise the merged
-// row reads as a single opaque "Context compaction" block and the
+// row reads as a single opaque "上下文压缩" block and the
 // user can't see the reply (#29824).
 const COMPACTION_END_MARKER =
   "--- END OF CONTEXT SUMMARY — respond to the message below, not the summary above ---";
@@ -333,7 +333,7 @@ function MessageBubble({
     compaction: {
       bg: "bg-muted/50",
       text: "text-muted-foreground italic",
-      label: "Context handoff",
+      label: "上下文交接",
     },
   };
 
@@ -551,8 +551,8 @@ function SessionRow({
         ghost
         size="icon"
         className="text-muted-foreground hover:text-foreground"
-        aria-label="Rename session"
-        title="Rename session"
+        aria-label="重命名会话"
+        title="重命名会话"
         onClick={(e) => {
           e.stopPropagation();
           setRenameValue(
@@ -570,8 +570,8 @@ function SessionRow({
         ghost
         size="icon"
         className="text-muted-foreground hover:text-foreground"
-        aria-label="Export session"
-        title="Export session JSON"
+        aria-label="导出会话"
+        title="导出会话 JSON"
         onClick={(e) => {
           e.stopPropagation();
           onExport(session.id);
@@ -653,7 +653,7 @@ function SessionRow({
                         if (e.key === "Enter") void submitRename();
                         else if (e.key === "Escape") setRenaming(false);
                       }}
-                      placeholder="Session title"
+                      placeholder="会话标题"
                       className="h-7 min-w-0 flex-1 py-0 text-sm"
                       disabled={renameSaving}
                     />
@@ -661,8 +661,8 @@ function SessionRow({
                       ghost
                       size="icon"
                       className="text-muted-foreground hover:text-success"
-                      aria-label="Save title"
-                      title="Save title"
+                      aria-label="保存标题"
+                      title="保存标题"
                       disabled={renameSaving}
                       onClick={() => void submitRename()}
                     >
@@ -676,8 +676,8 @@ function SessionRow({
                       ghost
                       size="icon"
                       className="text-muted-foreground hover:text-foreground"
-                      aria-label="Cancel rename"
-                      title="Cancel rename"
+                      aria-label="取消重命名"
+                      title="取消重命名"
                       disabled={renameSaving}
                       onClick={() => setRenaming(false)}
                     >
@@ -845,7 +845,7 @@ export default function SessionsPage() {
   const sessionsRequestRef = useRef(0);
   // Count of empty (no-message, ended, non-archived) sessions across the
   // entire DB, populated by /api/sessions/empty/count. Used to:
-  //   • hide the "Delete empty" button when there's nothing to clean up
+  //   • hide the "删除空会话" button when there's nothing to clean up
   //   • show "(N)" alongside the label
   //   • surface the count in the confirm dialog body
   // Refreshed on mount, after single-session deletes, and after the bulk
@@ -959,14 +959,14 @@ export default function SessionsPage() {
   );
 
   const defaultSourceFilterLabel = useMemo(() => {
-    if (sessionCategory === "chats") return "Any chat source";
-    if (sessionCategory === "automation") return "Any automation source";
+    if (sessionCategory === "chats") return "任意聊天来源";
+    if (sessionCategory === "automation") return "任意自动化来源";
     return t.sessions.anySource;
   }, [sessionCategory, t.sessions.anySource]);
 
   const sourceMenuTitle = useMemo(() => {
-    if (sessionCategory === "chats") return "Chat sources";
-    if (sessionCategory === "automation") return "Automation sources";
+    if (sessionCategory === "chats") return "聊天来源";
+    if (sessionCategory === "automation") return "自动化来源";
     return t.sessions.sourceFilter;
   }, [sessionCategory, t.sessions.sourceFilter]);
 
@@ -975,7 +975,7 @@ export default function SessionsPage() {
       return defaultSourceFilterLabel;
     }
     if (selectedSources.length === 0) {
-      return "No sources";
+      return "无来源";
     }
     if (selectedSources.length === 1) {
       return sourceLabel(selectedSources[0]);
@@ -1018,7 +1018,7 @@ export default function SessionsPage() {
         onClick={() => setPruneOpen(true)}
         prefix={<Archive />}
       >
-        Prune old sessions
+        清理旧会话
       </Button>,
     );
     return () => {
@@ -1174,7 +1174,7 @@ export default function SessionsPage() {
   }, [actionStatus?.lines]);
 
   // Wrapped setters that ALSO clear the bulk selection. The user's
-  // mental model is "I'm selecting what I can see" — carrying a
+  // mental model is "仅选择当前可见项" — carrying a
   // selection across a page change, search input, or view switch
   // would arm invisible rows for deletion, which is the exact footgun
   // the confirm dialog can't catch. Doing this at the call sites
@@ -1479,10 +1479,10 @@ export default function SessionsPage() {
         setOverviewSessions((prev) =>
           prev.map((s) => (s.id === id ? { ...s, title } : s)),
         );
-        showToast("Session renamed", "success");
+        showToast("会话已重命名", "success");
         loadStats();
       } catch {
-        showToast("Failed to rename session", "error");
+        showToast("重命名会话失败", "error");
       }
     },
     [rowProfile, showToast, loadStats],
@@ -1510,7 +1510,7 @@ export default function SessionsPage() {
         a.click();
         URL.revokeObjectURL(url);
       } catch {
-        showToast("Failed to export session", "error");
+        showToast("导出会话失败", "error");
       }
     },
     [rowProfile, showToast],
@@ -1519,7 +1519,7 @@ export default function SessionsPage() {
   const handlePrune = useCallback(async () => {
     const days = parseInt(pruneDays, 10);
     if (!Number.isFinite(days) || days < 0) {
-      showToast("Enter a valid number of days", "error");
+      showToast("请输入有效的天数", "error");
       return;
     }
     setPruning(true);
@@ -1531,7 +1531,7 @@ export default function SessionsPage() {
       setPage(0);
       loadStats();
     } catch {
-      showToast("Failed to prune sessions", "error");
+      showToast("清理会话失败", "error");
     } finally {
       setPruning(false);
     }
@@ -1656,7 +1656,7 @@ export default function SessionsPage() {
       >
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Prune old sessions</DialogTitle>
+            <DialogTitle>清理旧会话</DialogTitle>
             <DialogDescription>
               Permanently remove archived sessions whose last activity is older
               than the given number of days. Active sessions are never pruned.
@@ -1667,7 +1667,7 @@ export default function SessionsPage() {
               htmlFor="prune-days"
               className="text-xs font-medium text-muted-foreground"
             >
-              Older than (days)
+              早于（天）
             </label>
             <Input
               id="prune-days"
@@ -1708,32 +1708,32 @@ export default function SessionsPage() {
             <span className="text-lg font-semibold tabular-nums leading-none">
               {stats.total}
             </span>
-            <span className="text-xs text-muted-foreground">Total</span>
+            <span className="text-xs text-muted-foreground">总会话</span>
           </div>
           <div className="flex flex-col">
             <span className="text-lg font-semibold tabular-nums leading-none text-success">
               {stats.active_store}
             </span>
-            <span className="text-xs text-muted-foreground">Active in store</span>
+            <span className="text-xs text-muted-foreground">存储中活跃</span>
           </div>
           <div className="flex flex-col">
             <span className="text-lg font-semibold tabular-nums leading-none">
               {stats.archived}
             </span>
-            <span className="text-xs text-muted-foreground">Archived</span>
+            <span className="text-xs text-muted-foreground">已归档</span>
           </div>
           <div className="flex flex-col">
             <span className="text-lg font-semibold tabular-nums leading-none">
               {stats.messages}
             </span>
-            <span className="text-xs text-muted-foreground">Messages</span>
+            <span className="text-xs text-muted-foreground">消息数</span>
           </div>
           {Object.keys(stats.by_source).length > 0 && (
             <div className="flex flex-col">
               <span className="text-lg font-semibold tabular-nums leading-none">
                 {Object.keys(stats.by_source).length}
               </span>
-              <span className="text-xs text-muted-foreground">Sources</span>
+              <span className="text-xs text-muted-foreground">来源</span>
             </div>
           )}
         </div>
@@ -1988,12 +1988,12 @@ export default function SessionsPage() {
                 className="shrink-0"
                 disabled={importingSessions}
                 onClick={() => importInputRef.current?.click()}
-                aria-label="Import exported sessions"
-                title="Import exported session JSON or JSONL"
+                aria-label="导入已导出的会话"
+                title="导入导出的会话 JSON 或 JSONL"
                 prefix={importingSessions ? <Spinner /> : <Upload />}
               >
                 <span className="font-mondwest normal-case text-xs">
-                  Import sessions
+                  导入会话
                 </span>
               </Button>
             )}

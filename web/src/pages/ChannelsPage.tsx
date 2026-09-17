@@ -44,13 +44,13 @@ const STATE_BADGE: Record<
   string,
   { tone: "success" | "warning" | "destructive" | "secondary" | "outline"; label: string }
 > = {
-  connected: { tone: "success", label: "Connected" },
-  pending_restart: { tone: "warning", label: "Restart to apply" },
-  gateway_stopped: { tone: "warning", label: "Gateway stopped" },
-  startup_failed: { tone: "destructive", label: "Start failed" },
+  connected: { tone: "success", label: "已连接" },
+  pending_restart: { tone: "warning", label: "重启以生效" },
+  gateway_stopped: { tone: "warning", label: "网关已停止" },
+  startup_failed: { tone: "destructive", label: "启动失败" },
   disconnected: { tone: "warning", label: "Disconnected" },
-  not_configured: { tone: "outline", label: "Not configured" },
-  disabled: { tone: "secondary", label: "Disabled" },
+  not_configured: { tone: "outline", label: "未配置" },
+  disabled: { tone: "secondary", label: "已禁用" },
   fatal: { tone: "destructive", label: "Error" },
 };
 
@@ -210,7 +210,7 @@ export default function ChannelsPage() {
     });
     if (Object.keys(nextFieldErrors).length > 0) {
       setFieldErrors(nextFieldErrors);
-      showToast("Fix the highlighted fields before saving.", "error");
+      showToast("保存前请先修正标红的字段。", "error");
       return;
     }
     setSaving(true);
@@ -291,7 +291,7 @@ export default function ChannelsPage() {
         disabled={restarting}
         prefix={restarting ? <Spinner /> : <RotateCw className="h-4 w-4" />}
       >
-        {restarting ? "Restarting…" : "Restart gateway"}
+        {restarting ? "Restarting…" : "重启网关"}
       </Button>,
     );
     return () => setEnd(null);
@@ -322,7 +322,7 @@ export default function ChannelsPage() {
             <div className="flex items-center gap-2 text-sm">
               <AlertTriangle className="h-4 w-4 shrink-0 text-warning" />
               <span>
-                Changes are saved. Restart the gateway for them to take effect.
+                更改已保存。重启网关后生效。
               </span>
             </div>
             <Button
@@ -332,7 +332,7 @@ export default function ChannelsPage() {
               disabled={restarting}
               prefix={restarting ? <Spinner /> : <RotateCw className="h-4 w-4" />}
             >
-              {restarting ? "Restarting…" : "Restart now"}
+              {restarting ? "Restarting…" : "立即重启"}
             </Button>
           </CardContent>
         </Card>
@@ -343,18 +343,16 @@ export default function ChannelsPage() {
           <CardContent className="flex items-center gap-2 p-4 text-sm text-muted-foreground">
             <WifiOff className="h-4 w-4 shrink-0" />
             <span>
-              The gateway is not running. Configure channels here, then start the
-              gateway with <code className="font-courier">{gatewayStartCommand}</code>{" "}
-              (or the Restart button above).
+              网关未运行。在此配置渠道，然后用 <code className="font-courier">{gatewayStartCommand}</code>{" "}
+              启动网关（或点击上方的重启按钮）。
             </span>
           </CardContent>
         </Card>
       )}
 
       <p className="text-xs text-muted-foreground">
-        {configured} of {platforms.length} channels configured. Credentials are
-        written to <code className="font-courier">{envPath}</code>; the
-        gateway connects each enabled channel on its next restart.
+        已配置 {configured} / {platforms.length} 个渠道。凭据写入 <code className="font-courier">{envPath}</code>；
+        网关将在下次重启时连接各已启用渠道。
       </p>
 
       {/* Config modal */}
@@ -393,8 +391,8 @@ export default function ChannelsPage() {
                 className="font-mondwest text-display text-base tracking-wider"
               >
                 {editing.id === "telegram"
-                  ? "Use your own Telegram bot"
-                  : `Configure ${editing.name}`}
+                  ? "使用你自己的 Telegram 机器人"
+                  : `配置 ${editing.name}`}
               </h2>
               {editing.docs_url && (
                 <a
@@ -403,7 +401,7 @@ export default function ChannelsPage() {
                   rel="noopener noreferrer"
                   className="mt-1 inline-flex items-center gap-1 text-xs text-primary hover:underline"
                 >
-                  {editing.id === "telegram" ? "BotFather guide" : "Setup guide"}
+                  {editing.id === "telegram" ? "BotFather 指南" : "设置指南"}
                   <ExternalLink className="h-3 w-3" />
                 </a>
               )}
@@ -413,20 +411,18 @@ export default function ChannelsPage() {
               {editing.id === "telegram" && (
                 <div className="grid gap-3 text-sm text-muted-foreground">
                   <p>
-                    Connect a bot you already own, or create one in Telegram before
-                    filling in this form.
+                    接入你已有的机器人，或先在 Telegram 里创建一个再填写此表单。
                   </p>
                   <ol className="grid list-decimal gap-1.5 pl-5">
                     <li>
-                      Open <span className="text-foreground">@BotFather</span>, send
-                      <code className="mx-1 font-courier text-xs">/newbot</code>, and
-                      follow its prompts.
+                      打开 <span className="text-foreground">@BotFather</span>，发送
+                      <code className="mx-1 font-courier text-xs">/newbot</code>，
+                      然后按提示操作。
                     </li>
-                    <li>Copy the complete bot token BotFather gives you.</li>
+                    <li>复制 BotFather 给你的完整 Bot Token。</li>
                     <li>
-                      Message <span className="text-foreground">@userinfobot</span> to
-                      find your numeric Telegram user ID, then add it below for
-                      immediate access.
+                      给 <span className="text-foreground">@userinfobot</span> 发消息获取你的 Telegram 数字 ID，
+                      填到下方即可立即使用。
                     </li>
                   </ol>
                   <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs">
@@ -436,7 +432,7 @@ export default function ChannelsPage() {
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-primary hover:underline"
                     >
-                      Open @BotFather <ExternalLink className="h-3 w-3" />
+                      打开 @BotFather <ExternalLink className="h-3 w-3" />
                     </a>
                     <a
                       href="https://t.me/userinfobot"
@@ -444,17 +440,16 @@ export default function ChannelsPage() {
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-primary hover:underline"
                     >
-                      Find my user ID <ExternalLink className="h-3 w-3" />
+                      查找我的用户 ID <ExternalLink className="h-3 w-3" />
                     </a>
                   </div>
                   <p className="text-xs">
-                    You can leave allowed users blank. Hermes will then send new DM
-                    users a code that you approve from the Pairing page.
+                    允许用户可留空。Hermes 会给新私聊用户发送验证码，你在「配对」页批准即可。
                   </p>
                 </div>
               )}
               <p className="text-xs text-muted-foreground">
-                {editing.description}
+                {PLATFORM_DESC_ZH[editing.id] ?? editing.description}
               </p>
               {editing.env_vars.map((field: MessagingPlatformEnvVar) => (
                 <div className="grid gap-1.5" key={field.key}>
@@ -525,7 +520,7 @@ export default function ChannelsPage() {
                   disabled={saving}
                   prefix={saving ? <Spinner /> : undefined}
                 >
-                  {saving ? "Saving…" : "Save & enable"}
+                  {saving ? "Saving…" : "保存并启用"}
                 </Button>
               </div>
             </div>
@@ -568,7 +563,7 @@ export default function ChannelsPage() {
                         <Badge tone={badge.tone}>{badge.label}</Badge>
                       </div>
                       <span className="text-xs text-muted-foreground">
-                        {platform.description}
+                        {PLATFORM_DESC_ZH[platform.id] ?? platform.description}
                       </span>
                       {platform.error_message && (
                         <span className="text-xs text-destructive">
@@ -609,7 +604,7 @@ export default function ChannelsPage() {
                         )
                       }
                     >
-                      Test
+                      测试
                     </Button>
                     {platform.id !== "telegram" && (
                       <Button
@@ -618,7 +613,7 @@ export default function ChannelsPage() {
                         onClick={() => openConfig(platform)}
                         prefix={<Settings2 className="h-4 w-4" />}
                       >
-                        Configure
+                        配置
                       </Button>
                     )}
                   </div>
@@ -650,6 +645,42 @@ export default function ChannelsPage() {
     </div>
   );
 }
+
+const PLATFORM_DESC_ZH: Record<string, string> = {
+  telegram: "从 Telegram 私聊、群组和话题中使用 Hermes。",
+  discord: "将 Hermes 接入 Discord 私聊、频道和帖子。",
+  slack: "通过 Socket Mode 在 Slack 中使用 Hermes。添加允许的 Slack 成员 ID，让已连接的机器人可以回复。",
+  mattermost: "将 Hermes 接入 Mattermost 频道和私信。",
+  matrix: "在 Matrix 房间和私信中使用 Hermes。",
+  signal: "通过 signal-cli REST 桥接接入。",
+  whatsapp: "使用内置的 WhatsApp 桥接（扫码登录）。",
+  homeassistant: "通过 Home Assistant 用 Hermes 控制智能家居。",
+  email: "通过 IMAP/SMTP 邮箱与 Hermes 对话。",
+  sms: "通过 Twilio 收发短信。",
+  dingtalk: "将 Hermes 接入钉钉群。",
+  feishu: "在飞书 / Lark 中使用 Hermes。",
+  google_chat: "通过 Cloud Pub/Sub 将 Hermes 接入 Google Chat。",
+  wecom: "通过 Webhook 的企微群机器人（仅发送）。",
+  wecom_callback: "通过回调应用的企微双向集成。",
+  weixin: "通过腾讯 iLink 机器人 API 接入个人微信。",
+  bluebubbles: "通过 BlueBubbles 服务器，经 iMessage 使用 Hermes。",
+  qqbot: "从 QQ 开放平台接入 QQ 机器人。",
+  yuanbao: "将 Hermes 接入腾讯元宝。",
+  api_server: "将 Hermes 暴露为 OpenAI 兼容的 HTTP API（供 Open WebUI 等工具使用）。",
+  webhook: "接收 GitHub、GitLab 等来源的 Webhook 事件。",
+  msgraph_webhook: "接收 Microsoft Graph 变更通知（Teams 会议、Outlook 等）。",
+  whatsapp_cloud: "通过 Meta 托管的 WhatsApp Cloud API 使用 Hermes（无需本地桥接）。",
+  relay: "由 Hermes Relay 连接器托管的通用中继适配器。",
+  a2a: "通过 A2A 协议与其他智能体互联互通。",
+  buzz: "作为外部智能体加入 Buzz 社区。",
+  irc: "在 IRC 频道（或私信）与 Hermes 之间转发消息。",
+  line: "通过 LINE Messaging API Webhook 在 LINE 中使用 Hermes。",
+  ntfy: "通过 ntfy 推送主题（ntfy.sh 或自建）与 Hermes 聊天。",
+  photon: "通过 Photon 托管的 Spectrum 平台，经 iMessage 使用 Hermes。",
+  raft: "作为外部智能体加入 Raft 工作区。",
+  simplex: "通过本地 simplex-chat 守护进程，在 SimpleX Chat 中使用 Hermes。",
+  teams: "通过 Bot Framework 将 Hermes 接入 Microsoft Teams 聊天。",
+};
 
 function WhatsAppOnboardingPanel({
   onChanged,
@@ -718,7 +749,7 @@ function WhatsAppOnboardingPanel({
           return;
         }
         if (status.status === "error") {
-          setError(status.error || "WhatsApp setup failed.");
+          setError(status.error || "WhatsApp 设置失败。");
           setSetup(null);
           setQrDataUrl("");
           setPhase("idle");
@@ -735,7 +766,7 @@ function WhatsAppOnboardingPanel({
           setSetup(null);
           setQrDataUrl("");
           setPhase("idle");
-          setError("WhatsApp QR setup expired. Start a new QR setup to try again.");
+          setError("WhatsApp 扫码已过期，请重新发起扫码。");
           return;
         }
         setError(`Still waiting for WhatsApp. Retrying after: ${pollError}`);
@@ -777,7 +808,7 @@ function WhatsAppOnboardingPanel({
         await updateQr(res.qr_payload);
       }
       if (res.status === "error") {
-        setError(res.error || "WhatsApp setup failed.");
+        setError(res.error || "WhatsApp 设置失败。");
         setSetup(null);
         setPhase("idle");
       } else {
@@ -863,7 +894,7 @@ function WhatsAppOnboardingPanel({
     phase === "connected" || phase === "applying"
       ? "WhatsApp is linked but Hermes is not listening yet. Save and restart the gateway to finish setup."
       : setup?.status === "installing"
-        ? "Preparing the WhatsApp bridge. The QR code will appear here when it is ready."
+        ? "正在准备 WhatsApp 桥接，就绪后二维码会显示在这里。"
         : setup?.status === "starting"
           ? "Starting the WhatsApp pairing bridge. The QR code will appear here when it is ready."
           : "Open WhatsApp on your phone, then go to Linked Devices and scan from there. This QR is not a browser URL.";
@@ -872,8 +903,8 @@ function WhatsAppOnboardingPanel({
     : setup?.account_name || setup?.account_id || "";
   const linkedAccountDetail =
     setup?.account_phone || setup?.account_id
-      ? "This is the WhatsApp account Hermes is now logged into."
-      : "Hermes is logged into the WhatsApp account that scanned the QR code.";
+      ? "这是 Hermes 当前登录的 WhatsApp 账号。"
+      : "Hermes 已登录扫码的 WhatsApp 账号。";
   const linkedAccountChatUrl = setup?.account_phone
     ? `https://wa.me/${setup.account_phone}`
     : "";
@@ -885,10 +916,10 @@ function WhatsAppOnboardingPanel({
   const pairingInstruction =
     mode === "self-chat" && !allowedUsers.trim()
       ? hasSavedAllowedUsers
-        ? "Hermes will keep the saved WhatsApp allowlist."
-        : "Self-chat mode will allow the linked account automatically when you save."
+        ? "Hermes 将保留已保存的 WhatsApp 白名单。"
+        : "自聊模式下，保存后将自动放行所关联的账号。"
       : !allowedUsers.trim() && hasSavedAllowedUsers
-        ? "Hermes will keep the saved WhatsApp allowlist."
+        ? "Hermes 将保留已保存的 WhatsApp 白名单。"
         : "If no allowed numbers were entered, Hermes replies with a pairing code. Approve it from the dashboard Pairing page.";
 
   return (
@@ -902,11 +933,11 @@ function WhatsAppOnboardingPanel({
             disabled={phase === "starting" || phase === "waiting" || phase === "applying"}
             prefix={phase === "starting" ? <Spinner /> : <QrCode className="h-4 w-4" />}
           >
-            {phase === "starting" ? "Starting…" : "Pair with QR"}
+            {phase === "starting" ? "Starting…" : "扫码配对"}
           </Button>
           {platform.configured && (
             <span className="text-xs text-muted-foreground">
-              Existing WhatsApp settings are configured.
+              已配置现有的 WhatsApp 设置。
             </span>
           )}
         </div>
@@ -914,7 +945,7 @@ function WhatsAppOnboardingPanel({
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
           <div className="grid gap-1.5">
             <span className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
-              Mode
+              模式
             </span>
             <div className="flex flex-wrap gap-2">
               <Button
@@ -923,7 +954,7 @@ function WhatsAppOnboardingPanel({
                 onClick={() => setMode("bot")}
                 disabled={phase === "waiting" || phase === "applying"}
               >
-                Bot
+                机器人
               </Button>
               <Button
                 size="sm"
@@ -931,12 +962,12 @@ function WhatsAppOnboardingPanel({
                 onClick={() => setMode("self-chat")}
                 disabled={phase === "waiting" || phase === "applying"}
               >
-                Self-chat
+                自聊模式
               </Button>
             </div>
           </div>
           <div className="grid min-w-0 flex-1 gap-1.5">
-            <Label htmlFor="whatsapp-allowed-users">Allowed WhatsApp numbers</Label>
+            <Label htmlFor="whatsapp-allowed-users">允许的 WhatsApp 号码</Label>
             <Input
               id="whatsapp-allowed-users"
               value={allowedUsers}
@@ -958,7 +989,7 @@ function WhatsAppOnboardingPanel({
             <div className="grid gap-3">
               <div className="flex flex-wrap items-center gap-2">
                 {phase === "connected" || phase === "applying" ? (
-                  <Badge tone="success">Connected</Badge>
+                  <Badge tone="success">已连接</Badge>
                 ) : (
                   <Badge tone="warning">{setupStatusLabel}</Badge>
                 )}
@@ -982,11 +1013,11 @@ function WhatsAppOnboardingPanel({
                     <div className="font-medium">
                       {linkedAccountLabel
                         ? `Linked as ${linkedAccountLabel}`
-                        : "WhatsApp device linked"}
+                        : "WhatsApp 设备已关联"}
                     </div>
                     <div className="mt-1 text-muted-foreground">{linkedAccountDetail}</div>
                     <ol className="mt-3 list-decimal space-y-1 pl-5 text-muted-foreground">
-                      <li>Save and restart the gateway.</li>
+                      <li>保存并重启网关。</li>
                       <li>{messageInstruction}</li>
                       <li>{pairingInstruction}</li>
                     </ol>
@@ -997,7 +1028,7 @@ function WhatsAppOnboardingPanel({
                         target="_blank"
                         rel="noreferrer"
                       >
-                        Open chat link
+                        打开聊天链接
                         <ExternalLink className="h-3.5 w-3.5" />
                       </a>
                     )}
@@ -1010,7 +1041,7 @@ function WhatsAppOnboardingPanel({
                       disabled={phase === "applying"}
                       prefix={phase === "applying" ? <Spinner /> : <Save className="h-4 w-4" />}
                     >
-                      {phase === "applying" ? "Saving…" : "Save and restart"}
+                      {phase === "applying" ? "Saving…" : "保存并重启"}
                     </Button>
                     <Button size="sm" ghost onClick={() => void cancel()}>
                       Cancel
@@ -1024,27 +1055,27 @@ function WhatsAppOnboardingPanel({
               {qrDataUrl ? (
                 <img
                   src={qrDataUrl}
-                  alt="WhatsApp setup QR code"
+                  alt="WhatsApp 设置二维码"
                   className="h-60 w-60 bg-white p-2"
                 />
               ) : phase === "connected" || phase === "applying" ? (
                 <div className="flex h-60 w-60 flex-col items-center justify-center gap-2 border border-border bg-background/50 p-4 text-center">
                   <Badge tone="success">Linked</Badge>
                   <div className="text-sm text-muted-foreground">
-                    {linkedAccountLabel || "Existing WhatsApp session found"}
+                    {linkedAccountLabel || "发现已有的 WhatsApp 会话"}
                   </div>
                 </div>
               ) : (
                 <div className="flex h-60 w-60 flex-col items-center justify-center gap-3 border border-border bg-background/50 p-4 text-center">
                   <Spinner className="text-2xl" />
                   <div className="text-xs text-muted-foreground">
-                    Waiting for WhatsApp to provide a QR code…
+                    正在等待 WhatsApp 生成二维码…
                   </div>
                 </div>
               )}
               {phase === "waiting" && (
                 <span className="text-center text-xs text-muted-foreground">
-                  Scan with WhatsApp Linked Devices, not the camera app.
+                  请用 WhatsApp 的「已关联的设备」扫码，而不是相机。
                 </span>
               )}
               <Button size="sm" ghost onClick={() => void cancel()}>
@@ -1121,7 +1152,7 @@ function TelegramOnboardingPanel({
           setSetup(null);
           setQrDataUrl("");
           setPhase("idle");
-          setError("Telegram pairing expired. Start a new QR setup to try again.");
+          setError("Telegram 配对已过期，请重新发起扫码。");
           return;
         }
 
@@ -1191,7 +1222,7 @@ function TelegramOnboardingPanel({
   const addAllowedId = () => {
     const trimmed = newAllowedId.trim();
     if (!TELEGRAM_USER_ID_RE.test(trimmed)) {
-      setError("Allowed Telegram user IDs must be numeric.");
+      setError("允许的 Telegram 用户 ID 必须是数字。");
       return;
     }
     setError("");
@@ -1228,7 +1259,7 @@ function TelegramOnboardingPanel({
   const apply = async () => {
     if (!setup) return;
     if (allowedIds.length === 0) {
-      setError("Add at least one allowed Telegram user ID.");
+      setError("请至少添加一个允许的 Telegram 用户 ID。");
       return;
     }
     setPhase("applying");
@@ -1276,11 +1307,10 @@ function TelegramOnboardingPanel({
     <div className="rounded-sm border border-border bg-background/35 p-4">
       <div className="grid gap-1">
         <span className="font-mondwest text-sm text-foreground">
-          Choose how to connect your Telegram bot
+          选择 Telegram 机器人的接入方式
         </span>
         <span className="text-xs text-muted-foreground">
-          Both options connect a bot you control and save its credentials only to
-          this Hermes installation.
+          两种方式都是接入由你掌控的机器人，凭据仅保存在此 Hermes 安装中。
         </span>
       </div>
 
@@ -1288,13 +1318,12 @@ function TelegramOnboardingPanel({
         <div className="grid content-start gap-3 sm:pr-4">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-medium uppercase text-foreground">
-              Quick setup
+              快速设置
             </span>
-            <Badge tone="success">recommended</Badge>
+            <Badge tone="success">推荐</Badge>
           </div>
           <p className="text-xs text-muted-foreground">
-            Scan a QR code and confirm in Telegram. Hermes creates the bot and
-            detects your Telegram user ID automatically.
+            扫描二维码并在 Telegram 中确认。Hermes 会自动创建机器人并识别你的 Telegram 用户 ID。
           </p>
           <Button
             size="sm"
@@ -1303,17 +1332,16 @@ function TelegramOnboardingPanel({
             disabled={phase !== "idle"}
             prefix={phase === "starting" ? <Spinner /> : <QrCode className="h-4 w-4" />}
           >
-            {phase === "starting" ? "Starting…" : "Create with QR"}
+            {phase === "starting" ? "启动中…" : "扫码创建"}
           </Button>
         </div>
 
         <div className="grid content-start gap-3 border-t border-border pt-4 sm:border-t-0 sm:pl-4 sm:pt-0">
           <span className="text-xs font-medium uppercase text-foreground">
-            Use your own bot
+            使用你自己的机器人
           </span>
           <p className="text-xs text-muted-foreground">
-            Create a bot with @BotFather, or connect one you already have, by
-            entering its token and choosing who can use it.
+            用 @BotFather 创建机器人，或接入你已有的机器人：填入它的 Token 并选择谁可以使用。
           </p>
           <Button
             size="sm"
@@ -1323,22 +1351,21 @@ function TelegramOnboardingPanel({
             disabled={phase !== "idle"}
             prefix={<Bot className="h-4 w-4" />}
           >
-            Manual setup
+            手动设置
           </Button>
         </div>
       </div>
 
       {platform.configured && (
         <div className="mt-4 border-t border-border pt-3 text-xs text-muted-foreground">
-          Telegram credentials are already configured. A new QR setup or bot token
-          will replace the current bot when you save.
+          Telegram 凭据已配置。保存新的扫码设置或 Bot Token 将替换当前机器人。
         </div>
       )}
 
       {phase !== "idle" && (
         <div className="mt-4 border-t border-border pt-4">
           <span className="text-xs text-muted-foreground">
-            Finish or cancel the current QR setup before switching methods.
+            切换方式前请先完成或取消当前扫码设置。
           </span>
         </div>
       )}
@@ -1355,7 +1382,7 @@ function TelegramOnboardingPanel({
             {(phase === "ready" || phase === "applying") && (
               <div className="grid gap-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge tone="success">Ready</Badge>
+                  <Badge tone="success">就绪</Badge>
                   {botUsername && (
                     <span className="font-courier text-sm text-muted-foreground">
                       @{botUsername}
@@ -1366,7 +1393,7 @@ function TelegramOnboardingPanel({
                 <div className="grid gap-2">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
-                      Allowed users
+                      允许的用户
                     </span>
                     {detectedOwnerId && allowedIds.includes(detectedOwnerId) && (
                       <Badge tone="success">owner detected</Badge>
@@ -1390,7 +1417,7 @@ function TelegramOnboardingPanel({
                     ))}
                     {allowedIds.length === 0 && (
                       <span className="text-sm text-muted-foreground">
-                        Add at least one Telegram user ID.
+                        请至少添加一个 Telegram 用户 ID。
                       </span>
                     )}
                   </div>
@@ -1400,7 +1427,7 @@ function TelegramOnboardingPanel({
                   <Input
                     value={newAllowedId}
                     onChange={(event) => setNewAllowedId(event.target.value)}
-                    placeholder="Telegram user ID"
+                    placeholder="Telegram 用户 ID"
                     className="font-courier"
                   />
                   <Button size="sm" outlined onClick={addAllowedId} prefix={<Check />}>
@@ -1416,7 +1443,7 @@ function TelegramOnboardingPanel({
                     disabled={phase === "applying"}
                     prefix={phase === "applying" ? <Spinner /> : <Save className="h-4 w-4" />}
                   >
-                    {phase === "applying" ? "Saving…" : "Save and restart"}
+                    {phase === "applying" ? "Saving…" : "保存并重启"}
                   </Button>
                   <Button size="sm" ghost onClick={() => void cancel()}>
                     Cancel
@@ -1429,7 +1456,7 @@ function TelegramOnboardingPanel({
           <div className="flex flex-col items-center justify-center gap-3">
             <img
               src={qrDataUrl}
-              alt="Telegram setup QR code"
+              alt="Telegram 设置二维码"
               className="h-56 w-56 bg-white p-2"
             />
             <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
@@ -1446,7 +1473,7 @@ function TelegramOnboardingPanel({
                 className="inline-flex h-8 items-center gap-1 border border-border px-3 text-xs uppercase text-foreground hover:border-foreground/40"
               >
                 <ExternalLink className="h-4 w-4" />
-                Open Telegram
+                打开 Telegram
               </a>
               <Button size="sm" ghost onClick={() => void cancel()}>
                 Cancel

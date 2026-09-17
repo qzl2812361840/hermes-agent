@@ -49,13 +49,13 @@ function parseEnv(raw: string): Record<string, string> {
 
 export function buildMcpServerCreate(draft: McpServerDraft): McpServerCreate {
   const name = draft.name.trim();
-  if (!name) throw new Error("Name required");
+  if (!name) throw new Error("名称必填");
 
   if (draft.transport === "http") {
     const url = draft.url.trim();
-    if (!url) throw new Error("URL required");
+    if (!url) throw new Error("URL 必填");
     if (draft.httpAuth === "header" && !draft.bearerToken.trim()) {
-      throw new Error("Bearer token required");
+      throw new Error("需要 Bearer Token");
     }
 
     const server: McpServerCreate = { name, url };
@@ -67,7 +67,7 @@ export function buildMcpServerCreate(draft: McpServerDraft): McpServerCreate {
   }
 
   const command = draft.command.trim();
-  if (!command) throw new Error("Command required");
+  if (!command) throw new Error("命令必填");
 
   const server: McpServerCreate = { name, command };
   const args = parseArgs(draft.args);

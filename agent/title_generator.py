@@ -403,31 +403,32 @@ def generate_title(
         "__LANGUAGE_RULE__", _LANGUAGE_RULE_PINNED.format(language=language) if language else _LANGUAGE_RULE_MATCH_USER,
     )
     try:
-        # Use the provider's default temperature instead of forcing 0.3.
-        # Some models (e.g. GPT-5.6) only accept their server-side default
-        # and reject explicit temperature values, causing the daemon title
-        # thread to fail with "Unsupported value: 'temperature'".
-        # See: #72351, #51083, #51157
-        response = call_llm(
-            task="title_generation",
-            messages=[{"role": "system", "content": prompt}, {"role": "user", "content": user_snippet}],
-            # A title is a handful of tokens, but 64 was cut mid-JSON by fenced/prefixed replies and by
-            # reasoning models whose thinking survives the disable below (#83903, #82291). A model that
-            # honours the JSON contract stops after ~15 tokens regardless, so the ceiling only costs on
-            # replies that would have been garbage anyway. temperature=None: omitted from the wire so
-            # default-only reasoning models accept the first request (#72351).
-            max_tokens=TITLE_MAX_TOKENS, temperature=None, timeout=timeout, main_runtime=main_runtime,
-            extra_body={"response_format": _TITLE_RESPONSE_FORMAT},
-            # The module contract above promises thinking-disabled operation,
-            # but nothing enforced it: with the aux default reasoning_effort
-            # "" (provider default), Gemini enables internal thinking and
-            # bills thought tokens against max_tokens=64 — the JSON payload
-            # never lands, and the prose fallback stores the opening fence
-            # ("```json") as the session title (#91927).
-            reasoning_config={"enabled": False},
+        def _request_title(extra_body: dict):
+            return call_llm(
+                task="title_generation",
+                messages=[{"role": "system", "content": prompt}, {"role": "user", "content": user_snippet}],
+                # 官方(max_tokens 提到 TITLE_MAX_TOKENS) + temperature=None：部分模型只接受服务端默认温度，
+                # 显式 0.3 会让标题线程报 "Unsupported value: 'temperature'"（官方 #72351/#51083/#51157）。
+                max_tokens=TITLE_MAX_TOKENS, temperature=None, timeout=timeout, main_runtime=main_runtime,
+                extra_body=extra_body,
+                reasoning_config={"enabled": False},
+            )
+
+        _UNSUPPORTED_RESPONSE_FORMAT_MARKERS = (
+            "response_format", "json_schema", "unavailable", "not support", "unsupported",
         )
+        try:
+            response = _request_title({"response_format": _TITLE_RESPONSE_FORMAT})
+        except Exception as _fmt_error:  # noqa: BLE001 — provider may reject response_format outright
+            # ganiu (2026-08-01): 部分 provider（DeepSeek 等）直接拒绝 response_format/json_schema，
+            # 去掉它重试一次；_extract_title_text 会退化为宽松 JSON 扫描和首行散文，标题仍能生成。
+            if not any(m in str(_fmt_error).lower() for m in _UNSUPPORTED_RESPONSE_FORMAT_MARKERS):
+                raise
+            logger.debug("Title generation retry without response_format after: %s", _fmt_error)
+            response = _request_title({})
         message = response.choices[0].message
         title = _clean_title(_extract_title_text(message.content or "") or _title_from_reasoning(message))
+
         # Answer-shaped output guard: titling is a 3-7 word task, so a title with many words is a model that
         # ignored the task and answered the user's message instead ("I don't have context on X — that's not
         # something I recognize..."). Truncating would store half an assistant blob as the session title,

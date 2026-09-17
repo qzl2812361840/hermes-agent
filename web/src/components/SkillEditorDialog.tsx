@@ -103,7 +103,7 @@ function EditorBody({
   const handleSave = async () => {
     setError(null);
     if (!isEdit && !name.trim()) {
-      setError("Skill name is required.");
+      setError("技能名称为必填项。");
       return;
     }
     if (!content.trim()) {
@@ -139,7 +139,7 @@ function EditorBody({
     <>
       <DialogHeader>
         <DialogTitle>
-          {isEdit ? `Edit skill: ${editName}` : "New skill"}
+          {isEdit ? `Edit skill: ${editName}` : "新建技能"}
         </DialogTitle>
         <DialogDescription>
           {isEdit
@@ -162,7 +162,7 @@ function EditorBody({
               />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="skill-editor-category">Category (optional)</Label>
+              <Label htmlFor="skill-editor-category">分类（可选）</Label>
               <Input
                 id="skill-editor-category"
                 placeholder="devops"
@@ -207,7 +207,7 @@ function EditorBody({
             disabled={saving || loading}
             prefix={saving ? <Spinner /> : undefined}
           >
-            {saving ? "Saving…" : isEdit ? "Save changes" : "Create skill"}
+            {saving ? "Saving…" : isEdit ? "保存更改" : "创建技能"}
           </Button>
         </div>
       </div>

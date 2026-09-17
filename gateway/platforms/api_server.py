@@ -274,6 +274,20 @@ _RUNTIME_AGENT_OVERRIDE_KEYS = (
     "api_key", "base_url", "provider", "api_mode", "command", "args", "credential_pool")
 
 
+def _recent_window(body: Optional[Dict[str, Any]]) -> int:
+    """ganiu (2026-09-05, memory tiering): how many trailing history messages the
+    client asked for. ``0``/absent means "no cap". Hermes-internal helper calls
+    (heartbeat / title / judge) send the Hermes-Control header and are forced to 0
+    so a narrow window never starves an internal turn."""
+    try:
+        v = int((body or {}).get("recent_window") or 0)
+    except (TypeError, ValueError, AttributeError):
+        return 0
+    if v < 0:
+        return 0
+    return min(v, 2000)  # hard ceiling against a bad payload
+
+
 def _clean_request_string(value: Any) -> Optional[str]:
     """Return a stripped request string, or None for absent/non-string values."""
     return (value.strip() or None) if isinstance(value, str) else None
@@ -2211,6 +2225,17 @@ class APIServerAdapter(OpenAICompatRoutesMixin, BasePlatformAdapter):
             policy = RoomExecutionPolicy.from_mapping(room_execution_policy or {})
             enabled_toolsets = list(policy.enabled_toolsets)
             max_iterations = policy.max_iterations
+        else:
+            # ganiu (2026-08-01): request-level max_iterations (model_options.max_iterations)
+            # overrides the env default — the GaNiu backend uses it to cap tool loops.
+            try:
+                _req_max = (model_options or {}).get("max_iterations")
+                if _req_max:
+                    _iv = int(_req_max)
+                    if 1 <= _iv <= 1000:
+                        max_iterations = _iv
+            except (TypeError, ValueError):
+                pass
         # Reasoning resolves against the model that actually runs (per-model overrides), so only
         # after the precedence chain settles; an explicit request wins.
         if request_reasoning_config is None:
@@ -2803,15 +2828,22 @@ class APIServerAdapter(OpenAICompatRoutesMixin, BasePlatformAdapter):
             return None, _error_response(f"Session not found: {session_id}", 404, code="session_not_found")
         return session, None
 
-    async def _conversation_history_for_session(self, session_id: str) -> List[Dict[str, Any]]:
+    async def _conversation_history_for_session(
+        self, session_id: str, recent_window: int = 0,
+    ) -> List[Dict[str, Any]]:
         db = await self._ensure_session_db_async()
         if db is None:
             return []
         try:
-            return await asyncio.to_thread(db.get_messages_as_conversation, session_id)
+            history = await asyncio.to_thread(db.get_messages_as_conversation, session_id)
         except Exception as exc:
             logger.warning("Failed to load session history for %s: %s", session_id, exc)
             return []
+        # ganiu (2026-09-05, memory tiering): a client may ask for only the last N
+        # messages; older context is reachable through the retrieval chain instead.
+        if recent_window and len(history) > recent_window:
+            history = history[-recent_window:]
+        return history
 
     async def run_internal_session_turn(self, *, session_id: str, text: str, profile: str,
                                         notification_category: str = "result") -> None:
@@ -3781,7 +3813,8 @@ class APIServerAdapter(OpenAICompatRoutesMixin, BasePlatformAdapter):
         requested_runtime: Optional[Dict[str, Any]] = None, route_source: str = "global",
         confirmed_runtime_lock: bool = False, bind_declared_conversation: bool = False,
         session_history_delivery: str = "", turn_author: Optional[Dict[str, Any]] = None,
-        relay_metadata: Optional[Dict[str, Any]] = None, notification_category: str = "result") -> tuple:
+        relay_metadata: Optional[Dict[str, Any]] = None, notification_category: str = "result",
+        approval_target_q=None) -> tuple:
         """Create an agent and run one turn in a thread executor -> ``(result, usage)``.
         ``agent_ref[0]`` receives the agent so SSE writers can interrupt it; ``active_run_id``
         registers it in ``_active_run_agents``. Under a confirmed model lock the actual
@@ -3789,7 +3822,11 @@ class APIServerAdapter(OpenAICompatRoutesMixin, BasePlatformAdapter):
         ``session_history_delivery`` declares #98619 session-id provenance and default-denies: only audited
         producers whose client can address the id again pass "1" (see
         ``_bind_api_server_session``).
-        ``turn_author`` only labels the turn for memory attribution. It grants nothing."""
+        ``turn_author`` only labels the turn for memory attribution. It grants nothing.
+        ``approval_target_q`` (ganiu, 2026-08-01): when set, approval prompts raised during this
+        turn are ALSO mirrored onto that queue as ``approval.request`` events so an
+        OpenAI-compatible client (the GaNiu backend) can raise its own approval dialog; the
+        normal gateway transport still answers. Mirrored only — never an extra consent path."""
         loop = asyncio.get_running_loop()
         # ContextVars do not follow run_in_executor threads: capture here, re-enter in _run().
         request_profile = _api_request_profile.get()
@@ -3809,6 +3846,8 @@ class APIServerAdapter(OpenAICompatRoutesMixin, BasePlatformAdapter):
                 from agent.notification_presentation import notification_turn
                 from gateway.warning_notifications import diagnostic_turn_muted
                 muted = diagnostic_turn_muted({"notification_category": notification_category}, "api_server")
+                _ganiu_approval_registered = False
+                approval_session_key = session_id or gateway_session_key or ""
                 try:
                     agent = self._create_agent(
                         ephemeral_system_prompt=ephemeral_system_prompt, session_id=session_id,
@@ -3824,6 +3863,32 @@ class APIServerAdapter(OpenAICompatRoutesMixin, BasePlatformAdapter):
                     if active_run_id:
                         self._active_run_agents[active_run_id] = agent
                     effective_task_id = session_id or str(uuid.uuid4())
+                    # ganiu (2026-08-01): mirror approval prompts onto the caller's SSE queue so
+                    # the OpenAI-compatible client can raise its own dialog. Registered on the
+                    # same session key the gate resolves (chat_id), unregistered in `finally`.
+                    approval_session_key = session_id or gateway_session_key or effective_task_id
+                    if approval_target_q is not None:
+                        from tools.approval import register_gateway_notify as _register_gw_notify
+
+                        def _ganiu_approval_notify(approval_data: Dict[str, Any]) -> None:
+                            event = dict(approval_data or {})
+                            if "command" in event:
+                                from gateway.run import _redact_approval_command
+                                event["command"] = _redact_approval_command(event.get("command"))
+                            event.update({
+                                "event": "approval.request",
+                                "run_id": active_run_id or effective_task_id,
+                                "timestamp": time.time(),
+                                "choices": _approval_event_choices(
+                                    smart_denied=bool(event.get("smart_denied")),
+                                    allow_session=event.get("allow_session") is not False,
+                                    allow_permanent=event.get("allow_permanent") is not False,
+                                ),
+                            })
+                            with suppress(Exception):
+                                loop.call_soon_threadsafe(approval_target_q.put_nowait, event)
+                        _register_gw_notify(approval_session_key, _ganiu_approval_notify)
+                        _ganiu_approval_registered = True
                     # Process baseline for disconnect reaping (this surface bypasses TurnRunner)
                     # + shutdown-interrupt registration, once for every caller.
                     # Baseline for selective background-process reaping on SSE client disconnect — mirrors
@@ -3882,6 +3947,12 @@ class APIServerAdapter(OpenAICompatRoutesMixin, BasePlatformAdapter):
                     if agent is not None:
                         _clear_turn_process_ownership(agent)
                         self._shutdown_interruptible_agents.pop(id(agent), None)
+                        # ganiu: drop this turn's approval mirror so a later turn on the same
+                        # session key cannot push into a dead SSE queue.
+                        if _ganiu_approval_registered:
+                            with suppress(Exception):
+                                from tools.approval import unregister_gateway_notify as _unregister_gw_notify
+                                _unregister_gw_notify(approval_session_key)
                         # Bind the declared key to the row the turn actually ended on
                         # (agent.session_id carries a mid-turn rotation). Opt-in per route.
                         # Record the declared conversation on the row the turn actually ended on —

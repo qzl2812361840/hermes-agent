@@ -159,7 +159,7 @@ export function MemoryPressureBanner({
             ? (t.app.memoryCriticalBanner ??
               "Your agent is almost out of memory and may restart. Consider closing idle sessions or upgrading its memory.")
             : (t.app.memoryElevatedBanner ??
-              "Your agent is running low on memory.");
+              "智能体内存偏低。");
 
   return (
     <div

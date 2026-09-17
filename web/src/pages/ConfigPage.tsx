@@ -156,9 +156,39 @@ export default function ConfigPage() {
     return () => setEnd(null);
   }, [config, schema, searchQuery, setEnd, t.common.clear, t.common.search]);
 
+  const SECTION_ZH: Record<string, string> = {
+    bedrock: "Bedrock",
+    curator: "技能管家",
+    database: "数据库",
+    desktop: "桌面端",
+    gateway: "网关",
+    kanban: "看板",
+    loops: "循环",
+    lsp: "LSP",
+    matrix: "Matrix",
+    mattermost: "Mattermost",
+    moa: "MoA 混合智能体",
+    model_catalog: "模型目录",
+    monitoring: "监控",
+    openrouter: "OpenRouter",
+    proxy: "代理",
+    secrets: "密钥",
+    sessions: "会话",
+    slack: "Slack",
+    streaming: "流式输出",
+    tool_loop_guardrails: "工具循环护栏",
+    tool_output: "工具输出",
+    tools: "工具",
+    vertex: "Vertex",
+    wake_word: "唤醒词",
+    x_search: "X 搜索",
+    web: "网页",
+  };
+
   function prettyCategoryName(cat: string): string {
     const key = cat as keyof typeof t.config.categories;
     if (t.config.categories[key]) return t.config.categories[key];
+    if (SECTION_ZH[cat]) return SECTION_ZH[cat];
     return cat.charAt(0).toUpperCase() + cat.slice(1);
   }
 
@@ -413,7 +443,7 @@ export default function ConfigPage() {
           {showSection && (
             <div className="flex items-center gap-2 pt-4 pb-2 first:pt-0">
               <span className="font-mondwest text-display text-xs font-semibold tracking-wider text-muted-foreground">
-                {section.replace(/_/g, " ")}
+                {SECTION_ZH[section] ?? section.replace(/_/g, " ")}
               </span>
               <div className="flex-1 border-t border-border" />
             </div>

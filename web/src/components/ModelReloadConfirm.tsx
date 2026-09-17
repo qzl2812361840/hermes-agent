@@ -27,7 +27,7 @@ export function ModelReloadConfirm({
   return (
     <ConfirmDialog
       open={model !== null}
-      title="Switch model?"
+      title="切换模型？"
       description={
         description ??
         `Switching to ${model ?? ""} starts a fresh chat. Your current chat stays in your Sessions list and the agent's memory is kept. Reload now to apply it?`

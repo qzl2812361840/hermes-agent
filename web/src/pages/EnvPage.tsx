@@ -663,7 +663,7 @@ export default function EnvPage() {
     setAfterTitle(
       <nav
         className="flex shrink-0 flex-nowrap items-center gap-1"
-        aria-label="Jump to section"
+        aria-label="跳转到分组"
       >
         {sections.map((s) => (
           <button

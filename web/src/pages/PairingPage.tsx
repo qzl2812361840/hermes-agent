@@ -44,7 +44,7 @@ export default function PairingPage() {
         setPending(res.pending);
         setApproved(res.approved);
       })
-      .catch(() => showToast("Failed to load pairing requests", "error"))
+      .catch(() => showToast("加载配对请求失败", "error"))
       .finally(() => setLoading(false));
   }, [showToast]);
 
@@ -54,7 +54,7 @@ export default function PairingPage() {
 
   const handleApprove = async (user: PairingUser) => {
     if (!user.request_id) {
-      showToast("Missing pairing request", "error");
+      showToast("配对请求不存在", "error");
       return;
     }
     const key = getUserKey(user);
@@ -71,7 +71,7 @@ export default function PairingPage() {
   };
 
   const handleClearPending = async () => {
-    if (!window.confirm("Clear all pending pairing requests?")) return;
+    if (!window.confirm("清空所有待处理的配对请求？")) return;
     setClearing(true);
     try {
       const res = await api.clearPendingPairing();
@@ -105,7 +105,7 @@ export default function PairingPage() {
     ),
   });
 
-  // Put "Clear pending" button in page header
+  // Put "清空待处理" button in page header
   useLayoutEffect(() => {
     setEnd(
       <Button
@@ -115,7 +115,7 @@ export default function PairingPage() {
         disabled={clearing}
         prefix={clearing ? <Spinner /> : <Trash2 className="h-4 w-4" />}
       >
-        Clear pending
+        清空待处理
       </Button>,
     );
     return () => {
@@ -144,11 +144,11 @@ export default function PairingPage() {
         open={userRevoke.isOpen}
         onCancel={userRevoke.cancel}
         onConfirm={userRevoke.confirm}
-        title="Revoke access"
+        title="撤销访问权限"
         description={
           pendingRevokeUser
             ? `"${getUserLabel(pendingRevokeUser)}" will lose access. This cannot be undone.`
-            : "This user will lose access. This cannot be undone."
+            : "该用户将失去访问权限，且无法撤销此操作。"
         }
         confirmLabel="Revoke"
         loading={userRevoke.isDeleting}
@@ -161,13 +161,13 @@ export default function PairingPage() {
           className="flex items-center gap-2 text-muted-foreground"
         >
           <Users className="h-4 w-4" />
-          Pending requests ({pending.length})
+          待处理请求（{pending.length}）
         </H2>
 
         {pending.length === 0 && (
           <Card>
             <CardContent className="py-8 text-center text-sm text-muted-foreground">
-              No pending pairing requests
+              暂无待处理的配对请求
             </CardContent>
           </Card>
         )}
@@ -222,13 +222,13 @@ export default function PairingPage() {
           className="flex items-center gap-2 text-muted-foreground"
         >
           <ShieldCheck className="h-4 w-4" />
-          Approved users ({approved.length})
+          已批准用户（{approved.length}）
         </H2>
 
         {approved.length === 0 && (
           <Card>
             <CardContent className="py-8 text-center text-sm text-muted-foreground">
-              No approved users
+              暂无已批准用户
             </CardContent>
           </Card>
         )}

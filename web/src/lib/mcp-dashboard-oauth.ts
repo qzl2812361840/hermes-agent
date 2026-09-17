@@ -31,10 +31,10 @@ export async function completeMcpDashboardOAuth({
   try {
     started = await start(serverName);
     if (started.status === "error") {
-      throw new Error(started.error || "OAuth failed to start");
+      throw new Error(started.error || "OAuth 启动失败");
     }
     if (!started.authorization_url) {
-      throw new Error("OAuth server did not provide an authorization URL");
+      throw new Error("OAuth 服务器未提供授权地址");
     }
     authWindow.location.href = started.authorization_url;
   } catch (error) {
@@ -56,10 +56,10 @@ export async function completeMcpDashboardOAuth({
     }
     if (current.status === "approved") return current;
     if (current.status === "error") {
-      throw new Error(current.error || "OAuth authorization failed");
+      throw new Error(current.error || "OAuth 授权失败");
     }
     if (authWindow.closed) {
-      throw new Error("OAuth authorization window was closed before completion");
+      throw new Error("OAuth 授权窗口在完成前被关闭");
     }
     await sleep(1000);
   }

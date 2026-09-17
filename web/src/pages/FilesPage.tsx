@@ -69,7 +69,7 @@ function downloadDataUrl(dataUrl: string, name: string) {
 }
 
 function displayPath(path: string | null | undefined): string {
-  return path?.trim() || "Files";
+  return path?.trim() || "文件";
 }
 
 function transferHasFiles(event: ReactDragEvent<HTMLElement>): boolean {
@@ -138,7 +138,7 @@ export default function FilesPage() {
           type="button"
           onClick={() => void load()}
           disabled={loading}
-          aria-label="Refresh files"
+          aria-label="刷新文件"
         >
           {loading ? <Spinner /> : <RefreshCw />}
         </Button>
@@ -159,7 +159,7 @@ export default function FilesPage() {
   const goToPath = async () => {
     const nextPath = pathInput.trim();
     if (!nextPath) {
-      showToast("Path required", "error");
+      showToast("路径必填", "error");
       return;
     }
     await load(nextPath);
@@ -168,11 +168,11 @@ export default function FilesPage() {
   const createDirectory = async () => {
     const name = folderName.trim();
     if (!activePath) {
-      showToast("Directory unavailable", "error");
+      showToast("目录不可用", "error");
       return;
     }
     if (!name) {
-      showToast("Folder name required", "error");
+      showToast("文件夹名称必填", "error");
       return;
     }
     setCreating(true);
@@ -180,7 +180,7 @@ export default function FilesPage() {
       await api.createDirectory(joinPath(activePath, name));
       setFolderName("");
       setCreateDialogOpen(false);
-      showToast("Folder created", "success");
+      showToast("文件夹已创建", "success");
       await load();
     } catch (e) {
       showToast(`Create failed: ${errorMessage(e)}`, "error");
@@ -285,12 +285,12 @@ export default function FilesPage() {
             <Input
               value={pathInput}
               onChange={(event) => setPathInput(event.target.value)}
-              aria-label="Path"
-              placeholder="Path"
+              aria-label="路径"
+              placeholder="路径"
               className="h-9 min-w-0 flex-1 font-mono"
             />
             <Button type="submit" size="sm" outlined className="uppercase">
-              Go
+              前往
             </Button>
           </form>
         ) : (
@@ -308,7 +308,7 @@ export default function FilesPage() {
             className="uppercase"
             prefix={uploading ? <Spinner /> : <Upload />}
           >
-            Upload
+            上传
           </Button>
           <Button
             type="button"
@@ -319,7 +319,7 @@ export default function FilesPage() {
             className="uppercase"
             prefix={<FolderPlus />}
           >
-            Create
+            新建
           </Button>
         </div>
       </div>
@@ -332,7 +332,7 @@ export default function FilesPage() {
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         disabled={!canUpload}
-        aria-label="Upload files"
+        aria-label="上传文件"
         className={`flex min-h-20 w-full min-w-0 items-center justify-between gap-4 border border-dashed px-4 py-3 text-left transition ${
           draggingFiles
             ? "border-primary bg-primary/10 text-foreground"
@@ -345,15 +345,15 @@ export default function FilesPage() {
           </span>
           <span className="min-w-0">
             <span className="block text-sm font-semibold uppercase tracking-[0.08em] text-foreground">
-              {uploading ? "Uploading" : draggingFiles ? "Release to upload" : "Drop files here"}
+              {uploading ? "上传中" : draggingFiles ? "松开即可上传" : "将文件拖到此处"}
             </span>
             <span className="block truncate font-mono text-xs text-text-secondary" title={activePath}>
-              {activePath || "Loading"}
+              {activePath || "加载中"}
             </span>
           </span>
         </span>
         <span className="hidden shrink-0 text-xs font-semibold uppercase tracking-[0.08em] text-text-tertiary sm:block">
-          Choose files
+          选择文件
         </span>
       </button>
 
@@ -366,10 +366,10 @@ export default function FilesPage() {
           )}
 
           <div className="grid min-w-[42rem] grid-cols-[minmax(12rem,1fr)_7rem_10rem_5.5rem] items-center gap-3 border-b border-border px-4 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-text-tertiary">
-            <span>Name</span>
-            <span>Size</span>
-            <span>Modified</span>
-            <span className="text-right">Actions</span>
+            <span>名称</span>
+            <span>大小</span>
+            <span>修改时间</span>
+            <span className="text-right">操作</span>
           </div>
 
           {listing?.parent && (
@@ -391,10 +391,10 @@ export default function FilesPage() {
           {loading && !listing ? (
             <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
               <Spinner />
-              Loading files...
+              正在加载文件…
             </div>
           ) : listing && listing.entries.length === 0 ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">No files</div>
+            <div className="py-12 text-center text-sm text-muted-foreground">暂无文件</div>
           ) : (
             listing?.entries.map((entry) => (
               <div
@@ -468,9 +468,9 @@ export default function FilesPage() {
       >
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Create folder</DialogTitle>
+            <DialogTitle>新建文件夹</DialogTitle>
             <DialogDescription>
-              Target: {activePath || "Loading"}
+              Target: {activePath || "加载中"}
             </DialogDescription>
           </DialogHeader>
           <div className="p-4">
@@ -481,7 +481,7 @@ export default function FilesPage() {
               onKeyDown={(event) => {
                 if (event.key === "Enter") void createDirectory();
               }}
-              placeholder="Folder name"
+              placeholder="文件夹名称"
               disabled={creating}
             />
           </div>
@@ -514,11 +514,11 @@ export default function FilesPage() {
         loading={deleting}
         onCancel={() => setPendingDelete(null)}
         onConfirm={() => void confirmDelete()}
-        title={pendingDelete ? `Delete ${pendingDelete.name}?` : "Delete item?"}
+        title={pendingDelete ? `Delete ${pendingDelete.name}?` : "删除该项？"}
         description={
           pendingDelete?.is_directory
-            ? "This removes the folder and everything inside it."
-            : "This removes the file."
+            ? "这将删除该文件夹及其中的全部内容。"
+            : "这将删除该文件。"
         }
       />
     </div>

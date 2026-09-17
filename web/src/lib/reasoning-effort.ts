@@ -21,12 +21,12 @@ export interface EffortOption {
 }
 
 const EFFORT_LABELS: Record<ReasoningEffortValue, string> = {
-  none: "Off (no thinking)",
+  none: "关闭（不思考）",
   minimal: "Minimal",
   low: "Low",
   medium: "Medium",
   high: "High",
-  xhigh: "Extra High",
+  xhigh: "极高",
   max: "Max",
   ultra: "Ultra",
 };

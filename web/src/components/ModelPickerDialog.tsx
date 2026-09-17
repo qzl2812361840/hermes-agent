@@ -73,7 +73,7 @@ interface Props {
 
   onClose(): void;
   title?: string;
-  /** If true, hides "Persist globally" checkbox — always saves to config.yaml. */
+  /** If true, hides "全局持久化" checkbox — always saves to config.yaml. */
   alwaysGlobal?: boolean;
 }
 
@@ -85,7 +85,7 @@ export function ModelPickerDialog(props: Props) {
     loader,
     onApply,
     onClose,
-    title = "Switch Model",
+    title = "切换模型",
     alwaysGlobal = false,
   } = props;
   const standalone = !!loader && !!onApply;
@@ -279,7 +279,7 @@ export function ModelPickerDialog(props: Props) {
             message:
               result.confirm_message ||
               result.warning ||
-              "This model has unusually high known pricing.",
+              "该模型的已知定价异常高。",
           });
           return;
         }
@@ -307,7 +307,7 @@ export function ModelPickerDialog(props: Props) {
             message:
               result.confirm_message ||
               result.warning ||
-              "This model has unusually high known pricing.",
+              "该模型的已知定价异常高。",
           });
           return;
         }
@@ -373,7 +373,7 @@ export function ModelPickerDialog(props: Props) {
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
               autoFocus
-              placeholder="Filter providers and models…"
+              placeholder="筛选提供商与模型…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="pl-7 h-8 text-sm"
@@ -419,7 +419,7 @@ export function ModelPickerDialog(props: Props) {
         <footer className="border-t border-border p-3 flex items-center justify-between gap-3 flex-wrap">
           {alwaysGlobal ? (
             <span className="text-xs text-muted-foreground">
-              Saves to config.yaml — applies to new sessions.
+              保存到 config.yaml —— 对新会话生效。
             </span>
           ) : (
             <div className="flex items-center gap-2">
@@ -435,7 +435,7 @@ export function ModelPickerDialog(props: Props) {
                 className="font-mondwest normal-case tracking-normal text-xs text-muted-foreground cursor-pointer"
                 htmlFor="model-picker-persist-global"
               >
-                Persist globally (otherwise this session only)
+                全局持久化（否则仅本次会话）
               </Label>
             </div>
           )}
@@ -460,10 +460,10 @@ export function ModelPickerDialog(props: Props) {
       </div>
       <ConfirmDialog
         open={!!pendingConfirm}
-        title="Expensive Model Warning"
+        title="高价模型警告"
         description={pendingConfirm?.message}
         destructive
-        confirmLabel="Switch anyway"
+        confirmLabel="仍要切换"
         cancelLabel="Cancel"
         loading={applying}
         onCancel={() => setPendingConfirm(null)}

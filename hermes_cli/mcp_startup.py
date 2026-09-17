@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import threading
 from contextlib import nullcontext
 from contextvars import copy_context
@@ -50,8 +51,19 @@ def get_mcp_server_filter() -> Optional[list[str]]:
     return _mcp_server_filter
 
 
+def _mcp_disabled_by_env() -> bool:
+    """2026-08-03 ganiu-patches: HERMES_DISABLE_MCP=1 全局禁用 MCP 发现。
+
+    dashboard 网页控制台不需要 MCP 工具，避免与 gateway 双份拉起 MCP
+    进程吃爆内存（服务器卡死根因）。在发现源头拦截，覆盖所有入口。
+    """
+    return os.getenv("HERMES_DISABLE_MCP", "").strip() in ("1", "true", "True")
+
+
 def _has_configured_mcp_servers() -> bool:
     """Cheap config probe so non-MCP users avoid importing the MCP stack."""
+    if _mcp_disabled_by_env():
+        return False
     try:
         from hermes_cli.config import read_raw_config
 

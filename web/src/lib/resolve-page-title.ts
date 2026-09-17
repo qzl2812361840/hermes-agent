@@ -19,12 +19,12 @@ const BUILTIN: Record<string, keyof Translations["app"]["nav"]> = {
 // sidebar labels in App.tsx — the naive capitalize fallback below mangles
 // initialisms ("/mcp" → "Mcp") and can't match multi-word labels.
 const BUILTIN_LITERAL: Record<string, string> = {
-  "/files": "Files",
+  "/files": "文件",
   "/mcp": "MCP",
-  "/channels": "Channels",
-  "/webhooks": "Webhooks",
-  "/pairing": "Pairing",
-  "/system": "System",
+  "/channels": "渠道",
+  "/webhooks": "Webhook",
+  "/pairing": "配对",
+  "/system": "系统",
 };
 
 export function resolvePageTitle(

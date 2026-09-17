@@ -36,7 +36,21 @@ const LINE_COLORS: Record<string, string> = {
   debug: "text-text-tertiary",
 };
 
-const formatFilterLabel = (value: string) => value.toUpperCase();
+const FILTER_LABELS: Record<string, string> = {
+  all: "全部",
+  agent: "代理",
+  errors: "错误",
+  gateway: "网关",
+  tools: "工具",
+  cli: "CLI",
+  cron: "定时任务",
+  debug: "调试",
+  info: "信息",
+  warning: "警告",
+  error: "错误",
+};
+const formatFilterLabel = (value: string) =>
+  FILTER_LABELS[value.toLowerCase()] ?? value.toUpperCase();
 
 const toSegmentOptions = <T extends string>(values: readonly T[]) =>
   values.map((v) => ({ value: v, label: formatFilterLabel(v) }));

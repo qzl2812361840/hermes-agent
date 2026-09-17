@@ -640,8 +640,13 @@ class OpenAICompatRoutesMixin:
                     # on the tip is what this continuation consumes. Same canonical resolution
                     # the delivery writer (gateway/wake.py) and /v1/runs use; fails open.
                     from gateway.platforms.api_server_runs import _resolve_live_session_id
+                    from gateway.platforms.api_server import _recent_window
                     session_id = await _resolve_live_session_id(self, provided_session_id)
                     history = await asyncio.to_thread(db.get_messages_as_conversation, session_id)
+                    # ganiu (2026-09-05, memory tiering): honour the client's trailing window.
+                    _rw = _recent_window(body)
+                    if _rw and len(history) > _rw:
+                        history = history[-_rw:]
             except Exception as e:
                 logger.warning("Failed to load session history for %s: %s", session_id, e)
                 history = []
@@ -702,7 +707,8 @@ class OpenAICompatRoutesMixin:
             # start/complete callbacks (which carry the tool_call id).
             agent_task, agent_ref = self._spawn_stream_agent(
                 _stream_q, tool_start_callback=_on_tool_start,
-                tool_complete_callback=_on_tool_complete, **run_kwargs)
+                tool_complete_callback=_on_tool_complete,
+                approval_target_q=_stream_q, **run_kwargs)
             # #13437 identity contract: an explicit-header client keeps addressing the id it
             # sent; the response echoes that stable id while reads/writes adopt the live tip,
             # so a rotation mid-turn (after these headers are prepared) never changes what the
@@ -842,6 +848,10 @@ class OpenAICompatRoutesMixin:
                     await response.write(_sse_frame(_chunk({"reasoning_content": delta[1]})))
                 elif isinstance(delta, tuple) and len(delta) == 2 and delta[0] == "__status__":
                     await response.write(_sse_frame(delta[1], event="hermes.status"))
+                elif isinstance(delta, dict) and delta.get("event") == "approval.request":
+                    # ganiu (2026-08-01): mirror of a pending approval prompt so an
+                    # OpenAI-compatible client (GaNiu backend) can raise its own dialog.
+                    await response.write(_sse_frame(delta, event="approval.request"))
                 else:
                     await response.write(_sse_frame(_chunk({"content": delta})))
             # The agent can fail after the queue drains (task raises / result flagged failed or
@@ -1071,7 +1081,7 @@ class OpenAICompatRoutesMixin:
             agent_task, agent_ref = self._spawn_stream_agent(
                 _stream_q, tool_progress_callback=_on_tool_progress,
                 tool_start_callback=_on_tool_start, tool_complete_callback=_on_tool_complete,
-                interim_assistant_callback=_on_commentary, **run_kwargs)
+                interim_assistant_callback=_on_commentary, approval_target_q=_stream_q, **run_kwargs)
             return await self._write_sse_responses(
                 request=request, response_id=f"resp_{uuid.uuid4().hex[:28]}",
                 model=body.get("model", self._model_name), created_at=int(time.time()),

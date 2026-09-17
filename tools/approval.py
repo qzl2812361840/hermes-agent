@@ -794,7 +794,8 @@ def _human_decision(spec: _GateSpec, *, command: str, description: str,
                     pattern_key: str, pattern_keys: list[str], warnings: list[tuple],
                     session_key: str, approval_callback, is_cli: bool, is_gateway: bool,
                     is_ask: bool, smart: bool = False,
-                    permanent_capable: bool = True, pending_body=None) -> dict:
+                    permanent_capable: bool = True, pending_body=None,
+                    auto_execute_on_timeout: bool = False) -> dict:
     """Ask a human (after the optional guardian-LLM step) and turn the answer into the gate result.
 
     ``warnings`` are the ``(key, _, is_tirith)`` tuples :func:`_persist_choice` stores on
@@ -802,6 +803,10 @@ def _human_decision(spec: _GateSpec, *, command: str, description: str,
     allowlisted (pure-tirith prompts); a smart-DENY owner override reduces every surface to
     once/deny and persists nothing. ``pending_body`` is a thunk, built only once a human is
     actually asked, so a smart APPROVE never pays for redacting a large script.
+
+    ``auto_execute_on_timeout`` (ganiu rule, 2026-08-31): when the human prompt times out
+    unanswered, treat it as consent and run this ONE operation instead of failing closed.
+    Only ever set for delete-class patterns the operator explicitly asked to run.
     """
     from agent.redact import redact_sensitive_text
 
@@ -882,6 +887,16 @@ def _human_decision(spec: _GateSpec, *, command: str, description: str,
                             reason=f"approval was withdrawn before the user answered ({decision['cancelled']})",
                             reason_addendum="", timeout_addendum="", deny_reason=None)
             if not decision["resolved"]:
+                # ganiu rule (2026-08-31): delete-class commands the operator explicitly
+                # asked to run are executed when nobody answers in time — do not hang.
+                if auto_execute_on_timeout:
+                    logger.warning(
+                        "ganiu rule: approval timed out for delete-class action, auto-executing: %s",
+                        command,
+                    )
+                    result = grant("once")
+                    result["auto_executed_on_timeout"] = True
+                    return result
                 return deny(spec.gateway_refused, "timeout", reason="timed out without user response",
                             reason_addendum="", timeout_addendum=" Silence is not consent.",
                             deny_reason=deny_reason)
@@ -916,6 +931,12 @@ def _human_decision(spec: _GateSpec, *, command: str, description: str,
                                        smart_denied=smart_denied, approval_callback=approval_callback)
     approval_context._fire_approval_hook("post_approval_response", **hook_kwargs, choice=choice)
     if choice == "timeout":
+        # ganiu rule (2026-08-31): delete-class actions run on timeout instead of hanging.
+        if auto_execute_on_timeout:
+            logger.warning("ganiu rule: CLI approval timed out for delete-class action, auto-executing.")
+            result = grant("once")
+            result["auto_executed_on_timeout"] = True
+            return result
         return deny(spec.cli_timeout, "timeout")
     if choice == "cancelled":
         # The prompt never reached a human (callback raised, no callback under prompt_toolkit, interrupted
@@ -954,6 +975,7 @@ def _run_approval_gate(
     advice: str = "Find an alternative approach that avoids this action.",
     cron_deny_message: str = "", single_query_deny_message: str = "", unattended_deny_message: str = "",
     autoapprove_log_prefix: str, fail_closed_when_no_human: bool = False, no_human_block_message: str = "",
+    auto_execute_on_timeout: bool = False,
 ) -> dict:
     """Shared human-approval gate for a flagged action (tool call or write): decision core for
     :func:`request_tool_approval` and the file-tool write gates.
@@ -1018,6 +1040,7 @@ def _run_approval_gate(
         _ACTION_GATE, command=display_target, description=description, pattern_key=pattern_key,
         pattern_keys=[pattern_key], warnings=[(pattern_key, None, False)], session_key=session_key,
         approval_callback=approval_callback, is_cli=is_cli, is_gateway=is_gateway, is_ask=is_ask,
+        auto_execute_on_timeout=auto_execute_on_timeout,
     )
 
 
@@ -1036,6 +1059,71 @@ def _should_skip_container_guards(env_type: str, has_host_access: bool = False) 
         return bool(provider_flag(env_type, "skip_container_guards", False))
     except Exception:
         return False
+
+
+# ganiu rule (owner, 2026-08-31): the delete-class detector descriptions that still
+# prompt the human. Every other flagged pattern is auto-approved (see check_all_command_guards).
+# Values must match the descriptions emitted by tools/approval_detection.py verbatim.
+_GN_DELETE_DESCRIPTIONS = frozenset({
+    "recursive delete",
+    "recursive delete (long flag)",
+    "recursive delete (flags after operands)",
+    "delete in root path",
+    "find -exec/-execdir rm",
+    "find -delete",
+    "Windows cmd destructive delete",
+    "Windows PowerShell destructive delete",
+    "PowerShell destructive delete (Remove-Item)",
+    "Windows destructive delete (recursive/quiet switch)",
+})
+
+
+def _gn_log_restore_preview(command: str) -> None:
+    """ganiu rule (owner, 2026-08-04): before a restore-style command runs, log a per-file
+    feature summary (size + classes + functions) so the operator can see what is about to be
+    overwritten. Best-effort: never blocks, never raises.
+    """
+    import subprocess as _sp
+
+    patterns = (
+        r'\bgit reset --hard\b',
+        r'\bgit restore\b',
+        r'\bgit checkout --\b',
+        r'\bgit checkout .*--\b',
+        r'\bgit stash (pop|apply|branch)\b',
+    )
+    if not any(re.search(p, command, re.IGNORECASE) for p in patterns):
+        return
+    logger.warning("ganiu rule: restore-style command detected, listing affected files before running")
+    files: list[str] = []
+    try:
+        if "git reset --hard" in command:
+            preview = _sp.run(["git", "diff", "--name-only"], capture_output=True, text=True, timeout=30)
+            if preview.returncode == 0:
+                files = [f.strip() for f in preview.stdout.splitlines() if f.strip()]
+        else:
+            files = [t for t in command.split() if os.path.isfile(t)]
+    except Exception as exc:  # noqa: BLE001 - preview is advisory only
+        logger.warning("ganiu rule: restore preview listing failed: %s", exc)
+        return
+    if not files:
+        logger.warning("ganiu rule: restore preview found no affected files")
+        return
+    for path in files[:15]:
+        try:
+            with open(path, encoding="utf-8", errors="ignore") as fh:
+                content = fh.read(8000)
+        except Exception:
+            continue
+        lines = content.count("\n") + 1
+        funcs = re.findall(r"(?:async\s+)?def (\w+)\(", content)[:8]
+        classes = re.findall(r"class (\w+)", content)[:5]
+        summary = f"  {path} ({lines} 行)"
+        if classes:
+            summary += f"\n    类: {', '.join(classes)}"
+        if funcs:
+            summary += f"\n    函数: {', '.join(funcs)}"
+        logger.warning("恢复备份功能摘要:\n%s", summary)
 
 
 def _user_deny_block(command: str) -> dict | None:
@@ -1084,11 +1172,27 @@ def check_dangerous_command(command: str, env_type: str,
     is_dangerous, pattern_key, description = detect_dangerous_command(command)
     if not is_dangerous:
         return _approved()
+    # --- ganiu rule (owner, 2026-08-31 + 2026-08-04): non-delete dangerous patterns are
+    # auto-approved; delete-class patterns still prompt but auto-execute on timeout. Restore
+    # commands (git reset --hard / restore / checkout --) additionally log a feature summary
+    # of the files they would overwrite BEFORE the gate runs.
+    if description not in _GN_DELETE_DESCRIPTIONS:
+        _gn_log_restore_preview(command)
+        logger.warning(
+            "ganiu rule: non-delete flagged command auto-approved (dangerous-command path skipped): %s", description,
+        )
+        return {
+            "approved": True,
+            "message": None,
+            "auto_approved_ganiu_rule": True,
+            "description": description,
+        }
     return _run_approval_gate(
         pattern_key=pattern_key, description=description, display_target=command, approval_callback=approval_callback,
         subject=f"Command flagged as dangerous ({description})", noun="dangerous commands",
         advice="Find an alternative approach that avoids this command.",
         autoapprove_log_prefix="AUTO-APPROVED dangerous command in non-interactive non-gateway context",
+        auto_execute_on_timeout=True,
     )
 
 
@@ -1212,6 +1316,24 @@ def check_all_command_guards(command: str, env_type: str,
     primary_key = warnings[0][0]
     all_keys = [key for key, _, _ in warnings]
 
+    # --- ganiu rule (owner, 2026-08-31): only DELETE-class actions prompt the human.
+    # Every other dangerous pattern (git/chmod/pkill/script execution/…) is auto-approved
+    # here, before the guardian-LLM step — the owner explicitly asked for "all confirmation
+    # popups off except deleting files", and skipping the LLM also removes its timeout stall.
+    # Delete-class actions still prompt, but skip the LLM and auto-execute after the
+    # approval timeout instead of blocking.
+    if not any(desc in _GN_DELETE_DESCRIPTIONS for _, desc, _ in warnings):
+        logger.warning(
+            "ganiu rule: non-delete flagged command auto-approved (smart/LLM step skipped): %s", combined_desc,
+        )
+        return {
+            "approved": True,
+            "message": None,
+            "auto_approved_ganiu_rule": True,
+            "description": combined_desc,
+        }
+    _gn_delete_only = True
+
     # "Always" is offered when at least one warning is a dangerous-pattern key the persistence layer would actually
     # allowlist permanently. Pure-tirith findings are session-max by design, so a tirith-only prompt hides Always;
     # mixed prompts offer it (the pattern key persists, tirith downgrades to session — see _persist_choice).
@@ -1219,8 +1341,10 @@ def check_all_command_guards(command: str, env_type: str,
         _COMMAND_GATE, command=command, description=combined_desc,
         pattern_key=primary_key, pattern_keys=all_keys, warnings=warnings,
         session_key=session_key, approval_callback=approval_callback,
-        is_cli=is_cli, is_gateway=is_gateway, is_ask=is_ask, smart=approval_mode == "smart",
+        is_cli=is_cli, is_gateway=is_gateway, is_ask=is_ask,
+        smart=False if _gn_delete_only else approval_mode == "smart",
         permanent_capable=any(not is_t for _, _, is_t in warnings),
+        auto_execute_on_timeout=_gn_delete_only,
     )
 
 

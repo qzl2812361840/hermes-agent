@@ -591,6 +591,12 @@ async def _handle_runs(self, request: "web.Request", *, _api_server) -> "web.Res
     session_history_delivery = not previous_response_id and not conversation_history
     if not conversation_history and selected_session_id and not previous_response_id:
         conversation_history = await self._conversation_history_for_session(str(selected_session_id))
+        # ganiu (2026-09-05, memory tiering): the client may cap how much trailing history
+        # rides in context; older turns stay reachable through the retrieval chain.
+        from gateway.platforms.api_server import _recent_window
+        _rw = _recent_window(body)
+        if _rw and len(conversation_history) > _rw:
+            conversation_history = conversation_history[-_rw:]
     q = self._run_streams[run_id] = asyncio.Queue()
     created_at = self._run_streams_created[run_id] = time.time()
     self._run_approval_sessions[run_id] = run_id  # approval session key (see _RunLaunch)

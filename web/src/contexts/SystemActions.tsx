@@ -93,7 +93,7 @@ export function SystemActionsProvider({
               type: "success",
               message:
                 (resp.message ??
-                  "Updates don't apply from this dashboard.") +
+                  "此面板无法应用更新。") +
                 cmd,
             });
             return;

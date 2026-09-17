@@ -38,7 +38,7 @@ export function ModelInfoCard({
     return (
       <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
         <Spinner className="text-xs" />
-        Loading model info…
+        正在加载模型信息…
       </div>
     );
   }
@@ -53,7 +53,7 @@ export function ModelInfoCard({
       <div className="flex items-center gap-4 text-xs">
         <div className="flex items-center gap-1.5 text-muted-foreground">
           <Gauge className="h-3.5 w-3.5" />
-          <span className="font-medium">Context Window</span>
+          <span className="font-medium">上下文窗口</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="font-mono font-semibold text-foreground">
@@ -75,7 +75,7 @@ export function ModelInfoCard({
         <div className="flex items-center gap-4 text-xs">
           <div className="flex items-center gap-1.5 text-muted-foreground">
             <Lightbulb className="h-3.5 w-3.5" />
-            <span className="font-medium">Max Output</span>
+            <span className="font-medium">最大输出</span>
           </div>
           <span className="font-mono font-semibold text-foreground">
             {compactNumber(caps.max_output_tokens)}
@@ -87,17 +87,17 @@ export function ModelInfoCard({
         <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
           {caps.supports_tools && (
             <span className="inline-flex items-center gap-1 bg-success/10 px-2 py-0.5 text-xs font-medium text-success">
-              <Wrench className="h-2.5 w-2.5" /> Tools
+              <Wrench className="h-2.5 w-2.5" /> 工具
             </span>
           )}
           {caps.supports_vision && (
             <span className="inline-flex items-center gap-1 bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-600 dark:text-blue-400">
-              <Eye className="h-2.5 w-2.5" /> Vision
+              <Eye className="h-2.5 w-2.5" /> 视觉
             </span>
           )}
           {caps.supports_reasoning && (
             <span className="inline-flex items-center gap-1 bg-purple-500/10 px-2 py-0.5 text-xs font-medium text-purple-600 dark:text-purple-400">
-              <Brain className="h-2.5 w-2.5" /> Reasoning
+              <Brain className="h-2.5 w-2.5" /> 推理
             </span>
           )}
           {caps.model_family && (

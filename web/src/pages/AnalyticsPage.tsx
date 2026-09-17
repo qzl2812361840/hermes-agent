@@ -491,7 +491,7 @@ export default function AnalyticsPage() {
           <CardContent className="py-12">
             <div className="mx-auto flex max-w-2xl flex-col gap-3 text-sm text-muted-foreground">
               <h2 className="font-mondwest text-display text-base tracking-wider text-foreground">
-                Token analytics hidden
+                令牌分析已隐藏
               </h2>
               <p>
                 The token, cost, and per-day analytics on this page are a

@@ -221,7 +221,7 @@ export default function SkillsPage() {
     setEditorSkill(null);
     setEditorOpen(true);
   }, []);
-  // ── "Learn a skill" panel ──────────────────────────────────────────────
+  // ── "学习技能" panel ──────────────────────────────────────────────
   // Open-ended: dir + URL + free-text inputs are composed into a single-line
   // /learn command and handed to the chat. /learn resolves to a normal agent
   // turn (command.dispatch → send), so the live agent gathers the sources
@@ -434,7 +434,7 @@ export default function SkillsPage() {
                 />
                 <PanelItem
                   icon={Search}
-                  label="Browse hub"
+                  label="浏览技能中心"
                   active={view === "hub"}
                   onClick={() => {
                     setView("hub");
@@ -549,7 +549,7 @@ export default function SkillsPage() {
                       onClick={openLearn}
                       prefix={<Sparkles />}
                     >
-                      Learn a skill
+                      学习技能
                     </Button>
                     <Button
                       size="sm"
@@ -557,7 +557,7 @@ export default function SkillsPage() {
                       onClick={openCreateEditor}
                       prefix={<Plus />}
                     >
-                      New skill
+                      新建技能
                     </Button>
                   </div>
                 </div>
@@ -704,7 +704,7 @@ export default function SkillsPage() {
       <Dialog open={learnOpen} onOpenChange={setLearnOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Learn a skill</DialogTitle>
+            <DialogTitle>学习技能</DialogTitle>
             <DialogDescription>
               Point Hermes at anything and it will distill a reusable skill —
               following the house authoring standards. Fill in any combination
@@ -714,7 +714,7 @@ export default function SkillsPage() {
           <div className="grid gap-3 py-2">
             <div className="grid gap-1.5">
               <label className="text-xs font-medium text-muted-foreground">
-                Local file or directory
+                本地文件或目录
               </label>
               <Input
                 placeholder="~/projects/some-sdk  (read with read_file / search_files)"
@@ -739,7 +739,7 @@ export default function SkillsPage() {
               </label>
               <textarea
                 className="min-h-[90px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                placeholder="e.g. how I file an expense report: open the portal, …"
+                placeholder="例如：我怎么报销：打开门户，…"
                 value={learnText}
                 onChange={(e) => setLearnText(e.target.value)}
               />
@@ -754,7 +754,7 @@ export default function SkillsPage() {
               prefix={<Sparkles />}
               disabled={!learnDir.trim() && !learnUrl.trim() && !learnText.trim()}
             >
-              Learn it
+              学习
             </Button>
           </div>
         </DialogContent>
@@ -1040,7 +1040,7 @@ function HubBrowser({
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <Input
                 className="h-8 pl-8 text-sm"
-                placeholder="Search the skill hub (GitHub, official, community)…"
+                placeholder="搜索技能中心（GitHub、官方、社区）…"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => {
@@ -1062,7 +1062,7 @@ function HubBrowser({
               onClick={() => void updateAll()}
               prefix={<RefreshCw className="h-3.5 w-3.5" />}
             >
-              Update all
+              全部更新
             </Button>
           </div>
 
@@ -1114,7 +1114,7 @@ function HubBrowser({
               <div className="flex items-center gap-2 px-1">
                 <Sparkles className="h-3.5 w-3.5 text-primary" />
                 <span className="font-mondwest text-display text-xs tracking-[0.12em] text-text-secondary uppercase">
-                  Featured skills
+                  精选技能
                 </span>
                 <span className="text-xs text-text-tertiary">
                   from the Hermes index — search above for thousands more
@@ -1160,7 +1160,7 @@ function HubBrowser({
           {results.length === 0 ? (
             <Card className="rounded-none">
               <CardContent className="py-8 text-center text-sm text-muted-foreground">
-                No matching skills found in the hub.
+                技能中心里没有匹配的技能。
               </CardContent>
             </Card>
           ) : (
@@ -1201,7 +1201,7 @@ function ConnectedHubs({
 }) {
   if (loading) {
     return (
-      <p className="text-xs text-muted-foreground">Connecting to skill hubs…</p>
+      <p className="text-xs text-muted-foreground">正在连接技能中心…</p>
     );
   }
   if (sources.length === 0) {
@@ -1216,7 +1216,7 @@ function ConnectedHubs({
     <div className="flex flex-wrap items-center gap-1.5">
       <span className="flex items-center gap-1 text-xs text-text-tertiary">
         <Globe className="h-3 w-3" />
-        Connected hubs:
+        已连接的中心：
       </span>
       {sources.map((s) => {
         const down =
@@ -1469,7 +1469,7 @@ function SkillDetailDialog({
               )
             }
           >
-            {scan ? "Re-scan" : "Security scan"}
+            {scan ? "Re-scan" : "安全扫描"}
           </Button>
           <div className="ml-auto flex items-center gap-3">
             {result.repo && (
@@ -1534,7 +1534,7 @@ function SkillDetailDialog({
               </div>
             ) : (
               <p className="text-sm text-muted-foreground text-center py-10">
-                Couldn't load the skill source.
+                无法加载技能来源。
               </p>
             )
           ) : (
@@ -1559,7 +1559,7 @@ function ScanPanel({
       <div className="flex flex-col items-center justify-center gap-2 py-12">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
         <span className="text-xs text-muted-foreground">
-          Fetching, quarantining, and scanning…
+          正在获取、隔离并扫描…
         </span>
       </div>
     );
@@ -1582,10 +1582,10 @@ function ScanPanel({
         : "destructive";
   const policyLabel =
     scan.policy === "allow"
-      ? "Install allowed"
+      ? "允许安装"
       : scan.policy === "ask"
-        ? "Needs confirmation"
-        : "Install blocked";
+        ? "需要确认"
+        : "禁止安装";
 
   return (
     <div className="flex flex-col gap-3">
@@ -1632,7 +1632,7 @@ function ScanPanel({
         {scan.findings.length === 0 && (
           <span className="flex items-center gap-1 text-xs text-emerald-400">
             <CheckCircle2 className="h-3.5 w-3.5" />
-            No risky patterns detected
+            未检测到风险模式
           </span>
         )}
       </div>

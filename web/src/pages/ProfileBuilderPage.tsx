@@ -50,7 +50,7 @@ interface ModelChoice {
  * Composes the same elements the standalone Models / Skills / MCP pages
  * manage — Name, Description, Model+Provider, Skills (built-in/optional +
  * hub), MCP servers — into one stepped create flow. Nothing is written to
- * disk until "Create profile" on the final step; the single POST /api/profiles
+ * disk until "创建配置档案" on the final step; the single POST /api/profiles
  * call commits model + MCPs + skill selection synchronously and spawns any
  * hub-skill installs (which the success toast reports as in-progress).
  *
@@ -176,7 +176,7 @@ export default function ProfileBuilderPage() {
       entry = buildMcpServerCreate(mcpDraft);
     } catch (error) {
       showToast(
-        error instanceof Error ? error.message : "Invalid MCP server",
+        error instanceof Error ? error.message : "无效的 MCP 服务器",
         "error",
       );
       return;
@@ -283,7 +283,7 @@ export default function ProfileBuilderPage() {
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6 p-4">
       <div className="flex items-center justify-between">
-        <H2>New profile</H2>
+        <H2>新建配置档案</H2>
         <Button ghost onClick={() => navigate("/profiles")}>
           Cancel
         </Button>
@@ -317,7 +317,7 @@ export default function ProfileBuilderPage() {
           {step === "identity" && (
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="pb-name">Profile name</Label>
+                <Label htmlFor="pb-name">档案名称</Label>
                 <Input
                   id="pb-name"
                   placeholder="coder"
@@ -334,10 +334,10 @@ export default function ProfileBuilderPage() {
                 )}
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="pb-desc">Description (optional)</Label>
+                <Label htmlFor="pb-desc">描述（可选）</Label>
                 <Input
                   id="pb-desc"
-                  placeholder="What this agent profile is for"
+                  placeholder="这个智能体档案的用途"
                   value={description}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                     setDescription(e.target.value)
@@ -354,14 +354,14 @@ export default function ProfileBuilderPage() {
                 default.
               </p>
               <Input
-                placeholder="Filter models…"
+                placeholder="筛选模型…"
                 value={modelFilter}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   setModelFilter(e.target.value)
                 }
               />
               {modelChoices === null ? (
-                <p className="text-sm text-muted-foreground">Loading models…</p>
+                <p className="text-sm text-muted-foreground">正在加载模型…</p>
               ) : (
                 <div className="max-h-72 space-y-1 overflow-y-auto">
                   <button
@@ -371,7 +371,7 @@ export default function ProfileBuilderPage() {
                       modelChoice === "" ? "bg-primary/10" : "hover:bg-muted",
                     )}
                   >
-                    Use default (set later)
+                    使用默认（稍后设置）
                   </button>
                   {filteredModels.map((c) => {
                     const key = `${c.provider}\u0000${c.model}`;
@@ -402,7 +402,7 @@ export default function ProfileBuilderPage() {
                   checked={keepAll}
                   onCheckedChange={(v) => setKeepAll(Boolean(v))}
                 />
-                Start from the full default skill bundle (recommended)
+                从完整默认技能包开始（推荐）
               </label>
               {!keepAll && (
                 <div className="space-y-2">
@@ -411,7 +411,7 @@ export default function ProfileBuilderPage() {
                     Unchecked skills are disabled in the new profile.
                   </p>
                   <Input
-                    placeholder="Filter skills…"
+                    placeholder="筛选技能…"
                     value={skillFilter}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       setSkillFilter(e.target.value)
@@ -419,7 +419,7 @@ export default function ProfileBuilderPage() {
                   />
                   {skills === null ? (
                     <p className="text-sm text-muted-foreground">
-                      Loading skills…
+                      正在加载技能…
                     </p>
                   ) : (
                     <div className="max-h-56 space-y-1 overflow-y-auto">
@@ -454,10 +454,10 @@ export default function ProfileBuilderPage() {
 
               {/* Skills hub */}
               <div className="space-y-2 border-t pt-4">
-                <Label>Add from the skills hub</Label>
+                <Label>从技能中心添加</Label>
                 <div className="flex gap-2">
                   <Input
-                    placeholder="Search the hub (e.g. linear, hyperliquid)…"
+                    placeholder="搜索技能中心（例如 linear、hyperliquid）…"
                     value={hubQuery}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       setHubQuery(e.target.value)
@@ -524,7 +524,7 @@ export default function ProfileBuilderPage() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="space-y-1">
                   <h3 className="font-expanded text-base font-bold tracking-[0.04em]">
-                    MCP servers
+                    MCP 服务器
                   </h3>
                   <p className="text-sm text-muted-foreground">
                     Add MCP servers to give this profile access to external
@@ -540,14 +540,14 @@ export default function ProfileBuilderPage() {
               </div>
 
               <div className="space-y-4 border border-border bg-background/20 p-4 md:p-5">
-                <h4 className="font-medium">Add server</h4>
+                <h4 className="font-medium">添加服务器</h4>
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="grid gap-1.5">
-                    <Label htmlFor="pb-mcp-name">Server name</Label>
+                    <Label htmlFor="pb-mcp-name">服务器名称</Label>
                     <Input
                       id="pb-mcp-name"
-                      placeholder="Enter server name"
+                      placeholder="输入服务器名称"
                       value={mcpDraft.name}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                         setMcpDraft({ ...mcpDraft, name: e.target.value })
@@ -559,7 +559,7 @@ export default function ProfileBuilderPage() {
                     <div
                       className="grid grid-cols-2 border border-border bg-background/30 p-0.5"
                       role="group"
-                      aria-label="MCP transport"
+                      aria-label="MCP 传输方式"
                     >
                       {(
                         [
@@ -604,12 +604,12 @@ export default function ProfileBuilderPage() {
                       <div
                         className="grid grid-cols-3 border border-border bg-background/30 p-0.5 md:max-w-md"
                         role="group"
-                        aria-label="HTTP authentication"
+                        aria-label="HTTP 认证"
                       >
                         {(
                           [
                             ["none", "None"],
-                            ["header", "Bearer token"],
+                            ["header", "Bearer Token"],
                             ["oauth", "OAuth"],
                           ] as const
                         ).map(([value, label]) => (
@@ -633,13 +633,13 @@ export default function ProfileBuilderPage() {
                     {mcpDraft.httpAuth === "header" && (
                       <div className="grid gap-1.5">
                         <Label htmlFor="pb-mcp-bearer-token">
-                          Bearer token
+                          Bearer Token
                         </Label>
                         <Input
                           id="pb-mcp-bearer-token"
                           type="password"
                           autoComplete="new-password"
-                          placeholder="Token or Bearer token"
+                          placeholder="Token 或 Bearer Token"
                           value={mcpDraft.bearerToken}
                           onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                             setMcpDraft({
@@ -692,7 +692,7 @@ export default function ProfileBuilderPage() {
                     </div>
                     <div className="grid gap-1.5">
                       <Label htmlFor="pb-mcp-env">
-                        Environment (KEY=VALUE per line)
+                        环境变量（每行 KEY=VALUE）
                       </Label>
                       <textarea
                         id="pb-mcp-env"
@@ -708,7 +708,7 @@ export default function ProfileBuilderPage() {
                 )}
 
                 <div className="flex justify-end">
-                  <Button onClick={addMcpDraft}>Add server</Button>
+                  <Button onClick={addMcpDraft}>添加服务器</Button>
                 </div>
               </div>
 
@@ -759,13 +759,13 @@ export default function ProfileBuilderPage() {
               />
               <ReviewRow
                 label="Model"
-                value={pickedModel ? pickedModel.label : "Default (set later)"}
+                value={pickedModel ? pickedModel.label : "默认（稍后设置）"}
               />
               <ReviewRow
                 label="Skills"
                 value={
                   keepAll
-                    ? "Full default bundle"
+                    ? "完整默认技能包"
                     : `${keptSkills.size} built-in/optional kept` +
                       (hubSkills.length ? ` + ${hubSkills.length} hub` : "")
                 }
@@ -777,12 +777,12 @@ export default function ProfileBuilderPage() {
               )}
               {keepAll && hubSkills.length > 0 && (
                 <ReviewRow
-                  label="Hub skills"
+                  label="技能中心技能"
                   value={hubSkills.map((s) => s.name).join(", ")}
                 />
               )}
               <ReviewRow
-                label="MCP servers"
+                label="MCP 服务器"
                 value={
                   mcpServers.length
                     ? mcpServers.map((s) => s.name).join(", ")
@@ -805,7 +805,7 @@ export default function ProfileBuilderPage() {
         </Button>
         {step === "review" ? (
           <Button onClick={handleCreate} disabled={creating || !nameValid}>
-            {creating ? "Creating…" : "Create profile"}
+            {creating ? "Creating…" : "创建配置档案"}
           </Button>
         ) : (
           <Button

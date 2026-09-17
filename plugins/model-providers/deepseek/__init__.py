@@ -47,6 +47,7 @@ deepseek = DeepSeekProfile(
     name="deepseek", aliases=("deepseek-chat", "deep-seek"), env_vars=("DEEPSEEK_API_KEY",), display_name="DeepSeek",
     description="DeepSeek — native DeepSeek API", signup_url="https://platform.deepseek.com/",
     fallback_models=("deepseek-v4-pro", "deepseek-flash"), base_url="https://api.deepseek.com/v1",
+    # ganiu: aux/title/判定 走多模态 flash-vision (可读图) — 2026-09 主人指定
     default_aux_model="deepseek-flash",
     # Native API implements only ``json_object`` (https://api-docs.deepseek.com/guides/json_mode);
     # ``json_schema`` is a guaranteed HTTP 400 "This response_format type is unavailable now".

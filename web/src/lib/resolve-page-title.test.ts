@@ -32,11 +32,11 @@ describe("resolvePageTitle", () => {
   it("renders initialisms and literal labels correctly", () => {
     // Regression: the naive capitalize fallback produced "Mcp".
     expect(resolvePageTitle("/mcp", t, [])).toBe("MCP");
-    expect(resolvePageTitle("/system", t, [])).toBe("System");
-    expect(resolvePageTitle("/channels", t, [])).toBe("Channels");
-    expect(resolvePageTitle("/webhooks", t, [])).toBe("Webhooks");
-    expect(resolvePageTitle("/pairing", t, [])).toBe("Pairing");
-    expect(resolvePageTitle("/files", t, [])).toBe("Files");
+    expect(resolvePageTitle("/system", t, [])).toBe("系统");
+    expect(resolvePageTitle("/channels", t, [])).toBe("渠道");
+    expect(resolvePageTitle("/webhooks", t, [])).toBe("Webhook");
+    expect(resolvePageTitle("/pairing", t, [])).toBe("配对");
+    expect(resolvePageTitle("/files", t, [])).toBe("文件");
   });
 
   it("prefers plugin tab labels", () => {

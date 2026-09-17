@@ -73,7 +73,7 @@ export function ToolsetConfigDrawer({ toolset, profile, onClose, onChanged }: Pr
         }
         setIsSet(seed);
       })
-      .catch(() => showToast("Failed to load toolset config", "error"))
+      .catch(() => showToast("加载工具集配置失败", "error"))
       .finally(() => setLoading(false));
   }, [toolset.name, profile, showToast]);
 
@@ -109,7 +109,7 @@ export function ToolsetConfigDrawer({ toolset, profile, onClose, onChanged }: Pr
       } catch {
         if (!cancelled) {
           setPostSetupRunning(false);
-          showToast("Lost track of the post-setup process", "error");
+          showToast("后续设置进程状态丢失", "error");
         }
       }
     };
@@ -132,7 +132,7 @@ export function ToolsetConfigDrawer({ toolset, profile, onClose, onChanged }: Pr
       );
       onChanged();
     } catch {
-      showToast("Failed to toggle toolset", "error");
+      showToast("切换工具集失败", "error");
     } finally {
       setToggling(false);
     }
@@ -147,7 +147,7 @@ export function ToolsetConfigDrawer({ toolset, profile, onClose, onChanged }: Pr
       onChanged();
     } catch (e) {
       showToast(
-        e instanceof Error ? e.message : "Failed to select provider",
+        e instanceof Error ? e.message : "选择提供商失败",
         "error",
       );
     } finally {
@@ -162,7 +162,7 @@ export function ToolsetConfigDrawer({ toolset, profile, onClose, onChanged }: Pr
       if (v && v.trim()) env[e.key] = v.trim();
     }
     if (Object.keys(env).length === 0) {
-      showToast("Enter at least one value to save", "error");
+      showToast("请至少输入一个值再保存", "error");
       return;
     }
     setSavingProvider(provider.name);
@@ -178,13 +178,13 @@ export function ToolsetConfigDrawer({ toolset, profile, onClose, onChanged }: Pr
       showToast(
         res.saved.length
           ? `Saved ${res.saved.length} key${res.saved.length > 1 ? "s" : ""}`
-          : "Nothing to save",
+          : "没有可保存的内容",
         "success",
       );
       onChanged();
     } catch (e) {
       showToast(
-        e instanceof Error ? e.message : "Failed to save keys",
+        e instanceof Error ? e.message : "保存密钥失败",
         "error",
       );
     } finally {
@@ -204,7 +204,7 @@ export function ToolsetConfigDrawer({ toolset, profile, onClose, onChanged }: Pr
     } catch (e) {
       setPostSetupRunning(false);
       showToast(
-        e instanceof Error ? e.message : "Failed to start post-setup",
+        e instanceof Error ? e.message : "启动后续设置失败",
         "error",
       );
     }
@@ -277,7 +277,7 @@ export function ToolsetConfigDrawer({ toolset, profile, onClose, onChanged }: Pr
             </p>
           ) : config.providers.length === 0 ? (
             <p className="text-sm text-muted-foreground py-6 text-center">
-              No providers are available for this toolset in this install.
+              当前安装中没有可用于此工具集的提供商。
             </p>
           ) : (
             config.providers.map((provider) => {
@@ -373,7 +373,7 @@ export function ToolsetConfigDrawer({ toolset, profile, onClose, onChanged }: Pr
                               rel="noreferrer"
                               className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
                             >
-                              <ExternalLink className="h-3 w-3" /> Get a key
+                              <ExternalLink className="h-3 w-3" /> 获取密钥
                             </a>
                           )}
                         </div>
@@ -386,7 +386,7 @@ export function ToolsetConfigDrawer({ toolset, profile, onClose, onChanged }: Pr
                         {savingProvider === provider.name ? (
                           <Loader2 className="h-3 w-3 animate-spin" />
                         ) : (
-                          "Save keys"
+                          "保存密钥"
                         )}
                       </Button>
                     </div>
@@ -425,7 +425,7 @@ export function ToolsetConfigDrawer({ toolset, profile, onClose, onChanged }: Pr
                         {postSetupRunning &&
                         postSetupKey === provider.post_setup
                           ? "Installing…"
-                          : "Run setup"}
+                          : "运行设置"}
                       </Button>
                     </div>
                   )}

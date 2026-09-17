@@ -71,8 +71,8 @@ export function ThemeSwitcher({ collapsed = false, dropUp = false }: ThemeSwitch
             ? "text-text-secondary hover:text-foreground hover:bg-transparent"
             : "px-2 py-1 normal-case tracking-normal font-normal text-xs text-text-secondary hover:text-foreground",
         )}
-        title={`${t.theme?.switchTheme ?? "Switch theme"}: ${label}`}
-        aria-label={t.theme?.switchTheme ?? "Switch theme"}
+        title={`${t.theme?.switchTheme ?? "切换主题"}: ${label}`}
+        aria-label={t.theme?.switchTheme ?? "切换主题"}
         aria-expanded={open}
         aria-haspopup="listbox"
       >
@@ -221,7 +221,7 @@ const FONT_CATEGORY_LABEL_KEY: Record<FontChoice["category"], "fontSans" | "font
 };
 
 /** Font-override section rendered below the theme list. Lets the user pick
- *  any catalog font independently of the active theme, or "Theme default"
+ *  any catalog font independently of the active theme, or "跟随主题"
  *  to clear the override. Each row previews itself in its own font. */
 function FontSection({ fontChoices, fontId, setFont }: FontSectionProps) {
   const { t } = useI18n();
@@ -250,10 +250,10 @@ function FontSection({ fontChoices, fontId, setFont }: FontSectionProps) {
         <span aria-hidden className="h-4 w-9 shrink-0" />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <Typography className="truncate text-xs tracking-normal">
-            {t.theme?.fontDefault ?? "Theme default"}
+            {t.theme?.fontDefault ?? "跟随主题"}
           </Typography>
           <Typography className="truncate text-xs tracking-normal text-text-tertiary">
-            {t.theme?.fontDefaultHint ?? "Use the active theme's font"}
+            {t.theme?.fontDefaultHint ?? "使用当前主题的字体"}
           </Typography>
         </div>
         <Check

@@ -204,6 +204,10 @@ class PtyBridge:
                 return False
         return True
 
+    def getwinsize(self) -> tuple:
+        """Return the child PTY's current (rows, cols)."""
+        return self._proc.getwinsize()
+
     def resize(self, cols: int, rows: int) -> None:
         """Forward a terminal resize to the child via ``TIOCSWINSZ``.
 

@@ -31,12 +31,12 @@ import {
  * truth, the effect below re-asserts `?profile=` onto the new location
  * after each navigation, so the scope survives nav and stays deep-linkable.
  *
- * This exists because "Set as active" on the Profiles page historically only
+ * This exists because "设为当前" on the Profiles page historically only
  * flipped the sticky active_profile file (future CLI/gateway runs). The
  * switcher is the dashboard's write-target selector for Chat and management
  * pages. We now sync the switcher when the sticky active profile differs from
  * the dashboard process on load, and ProfilesPage updates the switcher when
- * you click "Set as active".
+ * you click "设为当前".
  */
 export function ProfileProvider({ children }: { children: ReactNode }) {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -57,7 +57,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   setManagementProfile(profile);
 
   // A profile param arriving via in-app navigation (e.g. the Profiles
-  // page's "Manage skills & tools" linking to /skills?profile=X) must win
+  // page's "管理技能与工具" linking to /skills?profile=X) must win
   // over current state — it's an explicit scope request.
   const urlProfile = searchParams.get("profile");
   useEffect(() => {

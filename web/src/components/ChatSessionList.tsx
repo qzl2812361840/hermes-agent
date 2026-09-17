@@ -7,7 +7,7 @@
  * a row sets `/chat?resume=<id>`; ChatPage treats the resume target as part
  * of the PTY identity, so the change tears down the current terminal child
  * and respawns it resuming that conversation (see ChatPage.tsx). The
- * "New session" action clears the resume param, which spawns a fresh PTY.
+ * "新建会话" action clears the resume param, which spawns a fresh PTY.
  *
  * Best-effort, like ChatSidebar: a failed fetch surfaces a small inline
  * error with a retry affordance and the terminal pane keeps working.
@@ -128,7 +128,7 @@ export function ChatSessionList({
     [activeSessionId, onPicked, setSearchParams],
   );
 
-  // "New chat" prefers ChatPage's robust handler (clears resume + forces a
+  // "新建聊天" prefers ChatPage's robust handler (clears resume + forces a
   // PTY respawn even from an already-fresh session). Fallback: clear the
   // resume param ourselves, which spawns a fresh PTY whenever one was being
   // resumed. Session management (delete/rename/export) lives on the Sessions

@@ -295,7 +295,7 @@ export function HermesConsoleModal({ open, onClose }: HermesConsoleModalProps) {
       }
 
       if (frame.type === "error") {
-        writeLine(term, `\x1b[31m${frame.message || "Command failed."}\x1b[0m`);
+        writeLine(term, `\x1b[31m${frame.message || "命令执行失败。"}\x1b[0m`);
         return;
       }
 
@@ -518,7 +518,7 @@ export function HermesConsoleModal({ open, onClose }: HermesConsoleModalProps) {
               id="hermes-console-title"
               className="font-mondwest text-display text-base tracking-wider"
             >
-              Hermes Console
+              Hermes 控制台
             </h2>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <Badge tone={statusTone}>{connectionState}</Badge>
@@ -543,7 +543,7 @@ export function HermesConsoleModal({ open, onClose }: HermesConsoleModalProps) {
             size="icon"
             onClick={onClose}
             className="text-muted-foreground hover:text-foreground"
-            aria-label="Close console"
+            aria-label="关闭控制台"
           >
             <X />
           </Button>

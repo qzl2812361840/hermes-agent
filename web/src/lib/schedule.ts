@@ -395,7 +395,7 @@ function describeInterval(
  * 6-field ``minute hour dom month dow year`` form, but humanising those
  * by destructuring only the first five fields would silently drop the
  * year and mislead the user (e.g. ``0 9 * * * 2099`` would read as
- * "Daily at 09:00"). 6+ field expressions intentionally fall through to
+ * "每天 09:00"). 6+ field expressions intentionally fall through to
  * the raw-string fallback in {@link describeSchedule}. */
 function describeCronExpression(
   expr: string,

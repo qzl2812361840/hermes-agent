@@ -109,7 +109,7 @@ import { sharedGatewayProfiles, sharedGatewayRestartDescription } from "@/lib/sh
 import { api } from "@/lib/api";
 import type { StatusResponse, UpdateCheckResponse } from "@/lib/api";
 
-function RouteFallback({ label = "Loading…" }: { label?: string }) {
+function RouteFallback({ label = "加载中…" }: { label?: string }) {
   return (
     <div
       className="flex min-h-[12rem] flex-1 items-center justify-center"
@@ -191,7 +191,7 @@ const BUILTIN_NAV_REST: NavItem[] = [
     label: "Sessions",
     icon: MessageSquare,
   },
-  { path: "/files", label: "Files", icon: FolderOpen },
+  { path: "/files", label: "文件", icon: FolderOpen },
   {
     path: "/analytics",
     labelKey: "analytics",
@@ -209,13 +209,13 @@ const BUILTIN_NAV_REST: NavItem[] = [
   { path: "/skills", labelKey: "skills", label: "Skills", icon: Package },
   { path: "/plugins", labelKey: "plugins", label: "Plugins", icon: Puzzle },
   { path: "/mcp", label: "MCP", icon: Plug },
-  { path: "/channels", label: "Channels", icon: Radio },
-  { path: "/webhooks", label: "Webhooks", icon: Webhook },
-  { path: "/pairing", label: "Pairing", icon: ShieldCheck },
+  { path: "/channels", label: "渠道", icon: Radio },
+  { path: "/webhooks", label: "Webhook", icon: Webhook },
+  { path: "/pairing", label: "配对", icon: ShieldCheck },
   { path: "/profiles", labelKey: "profiles", label: "Profiles", icon: Users },
   { path: "/config", labelKey: "config", label: "Config", icon: Settings },
   { path: "/env", labelKey: "keys", label: "Keys", icon: KeyRound },
-  { path: "/system", label: "System", icon: Wrench },
+  { path: "/system", label: "系统", icon: Wrench },
   {
     path: "/docs",
     labelKey: "documentation",
@@ -727,7 +727,7 @@ export default function App() {
 
                 <SidebarIconWithTooltip
                   collapsed={isDesktopCollapsed}
-                  label={t.theme?.switchTheme ?? "Switch theme"}
+                  label={t.theme?.switchTheme ?? "切换主题"}
                   tooltipWarmRef={tooltipWarmRef}
                 >
                   <ThemeSwitcher collapsed={isDesktopCollapsed} dropUp />
@@ -795,7 +795,7 @@ export default function App() {
                   !chatOverriddenByPlugin &&
                   (pluginsLoading ? (
                     isChatRoute ? (
-                      <RouteFallback label="Loading chat…" />
+                      <RouteFallback label="正在加载聊天…" />
                     ) : null
                   ) : chatHostMounted ? (
                     <div
@@ -809,7 +809,7 @@ export default function App() {
                       <Suspense
                         fallback={
                           isChatRoute ? (
-                            <RouteFallback label="Loading chat…" />
+                            <RouteFallback label="正在加载聊天…" />
                           ) : null
                         }
                       >
@@ -817,7 +817,7 @@ export default function App() {
                       </Suspense>
                     </div>
                   ) : isChatRoute ? (
-                    <RouteFallback label="Loading chat…" />
+                    <RouteFallback label="正在加载聊天…" />
                   ) : null)}
               </div>
               <PluginSlot name="post-main" />
@@ -1099,7 +1099,7 @@ function SidebarSystemActions({
 
     <ConfirmDialog
       cancelLabel={t.common.cancel}
-      confirmLabel={t.status.updateHermesConfirmNow ?? "Update now"}
+      confirmLabel={t.status.updateHermesConfirmNow ?? "立即更新"}
       description={
         updateConfirmChecking ? t.common.loading : updateConfirmDescription
       }
