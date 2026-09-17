@@ -1379,7 +1379,7 @@ function CatalogEntryCard(props: CatalogEntryCardProps) {
               target="_blank"
               rel="noreferrer"
             >
-              docs
+              文档
               <ExternalLink className="h-3 w-3 opacity-65" />
             </a>
           ) : null}

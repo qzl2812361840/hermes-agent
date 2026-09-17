@@ -115,7 +115,7 @@ class BasicAuthProvider(NonInteractiveMixin, DashboardAuthProvider):
     """Username/password provider with stateless HMAC-signed sessions."""
 
     name = "basic"
-    display_name = "Username & Password"
+    display_name = "用户名密码"
     supports_password = True
     _NOT_INTERACTIVE = "BasicAuthProvider is password-only; use complete_password_login."
     _NO_START_LOGIN = (

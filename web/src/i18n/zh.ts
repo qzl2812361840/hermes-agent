@@ -2,6 +2,8 @@ import type { Translations } from "./types";
 
 export const zh: Translations = {
   common: {
+    loadFailed: "无法加载{what}。请确认面板服务在运行，然后点击重试。",
+    loadFailedDetails: "详情：{detail}",
     save: "保存",
     saving: "保存中...",
     cancel: "取消",
@@ -239,6 +241,7 @@ export const zh: Translations = {
   },
 
   cron: {
+    loadWhat: "定时任务",
     confirmDeleteMessage: "将从此计划移除该任务，此操作无法撤销。",
     confirmDeleteTitle: "删除定时任务？",
     newJob: "新建定时任务",
@@ -291,12 +294,12 @@ export const zh: Translations = {
     resume: "恢复",
     triggerNow: "立即触发",
     delivery: {
+      needsHomeChannel: "请先设置主渠道",
       local: "本地",
       telegram: "Telegram",
       discord: "Discord",
       slack: "Slack",
       email: "邮件",
-    needsHomeChannel: "请先设置主渠道",
     noneConfigured: "未配置消息平台。请在「渠道」中配置一个以接收报告。",
     },
   },
@@ -365,6 +368,21 @@ export const zh: Translations = {
   },
 
   pluginsPage: {
+    catalogHeading: "插件目录",
+    catalogHint:
+      "由 Nous 审核、锁定到具体提交的插件。从这里安装可获得供应链安全版本。",
+    catalogSearchPlaceholder: "搜索目录…",
+    catalogEmpty: "没有匹配的目录条目。",
+    catalogEmptyDocsLink: "了解 Hermes 插件",
+    catalogInstallBtn: "安装",
+    catalogInstalledBadge: "已安装 ✓",
+    catalogUpdateBtn: "有可用更新",
+    catalogRemovedBadge: "已移除",
+    catalogConfirmTitle: "安装这个插件？",
+    catalogConfirmInstallNote:
+      "插件安装后默认停用；安装完成后启用即可激活。",
+    catalogRequiresEnv: "需要环境变量",
+    removedFromCatalog: "已从目录移除",
     contextEngineLabel: "上下文引擎",
     dashboardSlots: "面板插槽",
     disableRuntime: "禁用",
@@ -405,6 +423,9 @@ export const zh: Translations = {
   },
 
   skills: {
+    loadWhat: "技能",
+    browseHub: "浏览技能中心",
+    createSkill: "创建技能",
     title: "技能",
     searchPlaceholder: "搜索技能和工具集...",
     enabledOf: "已启用 {enabled}/{total}",
@@ -663,6 +684,8 @@ export const zh: Translations = {
   },
 
   kanban: {
+    clearFilters: "清除筛选",
+    dropHint: "拖到此处删除",
     loading: "正在加载看板…",
     loadFailed: "加载看板失败：",
     loadFailedHint:
@@ -787,6 +810,7 @@ export const zh: Translations = {
     clickToEditAssignee: "点击编辑负责人",
     emptyAssignee: "（留空 = 取消分配）",
     columnLabels: {
+      review: "评审",
       triage: "待分类",
       todo: "待办",
       scheduled: "已调度",
@@ -797,6 +821,7 @@ export const zh: Translations = {
       archived: "已归档",
     },
     columnHelp: {
+      review: "实现完成——等待评审",
       triage: "原始想法 — 规范制定者将完善规格",
       todo: "等待依赖项或未分配",
       scheduled: "等待已知的时间延迟或已调度的跟进",

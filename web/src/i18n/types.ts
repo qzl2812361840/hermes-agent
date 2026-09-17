@@ -719,6 +719,8 @@ export interface Translations {
 
   // ── Kanban ──
   kanban: {
+    clearFilters?: string;
+    dropHint?: string;
     loading: string;
     loadFailed: string;
     loadFailedHint: string;
@@ -834,6 +836,7 @@ export interface Translations {
     clickToEditAssignee: string;
     emptyAssignee: string;
     columnLabels: {
+      review?: string;
       triage: string;
       todo: string;
       scheduled: string;
@@ -844,6 +847,7 @@ export interface Translations {
       archived: string;
     };
     columnHelp: {
+      review?: string;
       triage: string;
       todo: string;
       scheduled: string;

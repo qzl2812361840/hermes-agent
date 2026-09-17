@@ -69,7 +69,7 @@ class DrainSecretProvider(NonInteractiveMixin, DashboardAuthProvider):
     """Non-interactive shared-bearer-secret provider for drain control."""
 
     name = "drain-secret"
-    display_name = "Drain Control (service credential)"
+    display_name = "Drain 控制（服务凭证）"
     supports_token = True
     supports_session = False
     _NOT_INTERACTIVE = "DrainSecretProvider is a non-interactive service credential."

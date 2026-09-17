@@ -97,7 +97,7 @@
     ready: "Ready",
     running: "In Progress",
     blocked: "Blocked",
-    review: "Review",
+    review: "评审",
     done: "Done",
     archived: "Archived",
   };
@@ -107,7 +107,7 @@
     ready: "Dependencies satisfied; assign a profile to dispatch",
     running: "Claimed by a worker — in-flight",
     blocked: "Worker asked for human input",
-    review: "Implementation complete — awaiting review",
+    review: "实现完成——等待评审",
     done: "Completed",
     archived: "Archived",
   };
@@ -131,7 +131,7 @@
     label: "Trash",
     title: "Drag a card here to permanently delete it",
     confirm: "Permanently delete this task? This cannot be undone.",
-    dropHint: "Drop to delete",
+    dropHint: "拖到此处删除",
   };
   const DIAGNOSTIC_EVENT_KIND_KEYS = {
     completion_blocked_hallucination: "completionBlockedHallucination",
@@ -1880,8 +1880,8 @@
     };
 
     const headerLabel = expanded
-      ? "▾ Orchestration settings"
-      : "▸ Orchestration settings";
+      ? "▾ 编排设置"
+      : "▸ 编排设置";
 
     // Mode pill — always visible (collapsed or expanded). One click flips
     // between Auto and Manual. Auto = dispatcher decomposes new triage tasks
@@ -1890,10 +1890,10 @@
     // stay in triage until then.
     const autoOn = !!(settings && settings.auto_decompose);
     const modePillTitle = settings === null
-      ? "Loading mode…"
+      ? "加载模式…"
       : (autoOn
-          ? "Orchestration: Auto — the dispatcher decomposes new triage tasks automatically every tick. Click to switch to Manual (pre-PR behavior)."
-          : "Orchestration: Manual — triage tasks stay in triage until you click ⚗ Decompose on each card. Click to switch to Auto.");
+          ? "编排：自动 — 调度器每个心跳自动拆解新的分诊任务。点击可切换为手动（旧行为）。"
+          : "编排：手动 — 分诊任务会停留在分诊栏，直到你点击每张卡片上的 ⚗ 拆解。点击可切换为自动。");
     const modePill = h("button", {
       type: "button",
       onClick: function () {
@@ -1908,9 +1908,9 @@
                     ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
                     : "border-muted-foreground/30 bg-muted/30 text-muted-foreground"),
     },
-      "Orchestration: ",
+      "编排：",
       h("span", { className: "ml-1 font-semibold" },
-        settings === null ? "…" : (autoOn ? "Auto" : "Manual"))
+        settings === null ? "…" : (autoOn ? "自动" : "手动"))
     );
 
     if (!expanded) {
@@ -2595,7 +2595,7 @@
         },
         size: "sm",
         title: "Clear all active filters (search, tenant, assignee, archived).",
-      }, tx(t, "clearFilters", "Clear filters")),
+      }, tx(t, "clearFilters", "清除筛选")),
     );
   }
 

@@ -77,7 +77,7 @@ class SelfHostedOIDCProvider(JwtOAuthProvider):
     """Generic self-hosted OpenID Connect provider (authorization-code + PKCE)."""
 
     name = "self-hosted"
-    display_name = "Self-Hosted OIDC"
+    display_name = "自建 OIDC"
 
     def __init__(self, *, issuer: str, client_id: str, scopes: str = _DEFAULT_SCOPES, client_secret: str = "") -> None:
         if not issuer:

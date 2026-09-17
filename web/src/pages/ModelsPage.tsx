@@ -414,12 +414,12 @@ function ModelCard({
               </CardTitle>
               {isMain && (
                 <span className="inline-flex items-center gap-0.5 bg-primary/15 px-1.5 py-0.5 text-display text-xs font-medium tracking-wider text-primary">
-                  <Star className="h-2.5 w-2.5" /> main
+                  <Star className="h-2.5 w-2.5" /> 主模型
                 </span>
               )}
               {mainAuxTask && (
                 <span className="inline-flex items-center bg-purple-500/10 px-1.5 py-0.5 text-display text-xs font-medium tracking-wider text-purple-600 dark:text-purple-400">
-                  aux · {mainAuxTask}
+                  辅助 · {AUX_TASKS.find((t) => t.key === mainAuxTask)?.label ?? mainAuxTask}
                 </span>
               )}
             </div>

@@ -19,11 +19,11 @@ from hermes_cli.dashboard_auth import list_session_providers
 # Single curly braces are ``str.format`` placeholders; CSS curlies are doubled.
 _LOGIN_HTML_TEMPLATE = """\
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sign in — Hermes Agent</title>
+<title>登录 — Hermes Agent</title>
 <style>
   /* Brand fonts shipped by @nous-research/ui — same files the SPA loads. */
   @font-face {{
@@ -289,14 +289,14 @@ _LOGIN_HTML_TEMPLATE = """\
 <main>
   <div class="brand">Nous<span class="dot"></span>Research</div>
   <div class="card">
-    <h1>Sign in</h1>
-    <p class="subtitle">Choose a sign-in method to continue to the Hermes Agent dashboard.</p>
+    <h1>登录</h1>
+    <p class="subtitle">选择一种登录方式以继续使用 Hermes Agent 面板。</p>
     <div class="provider-list">
 {provider_buttons}
     </div>
   </div>
   <footer>
-    <span class="sep"></span>Public bind &middot; Auth required<span class="sep"></span>
+    <span class="sep"></span>公网绑定 &middot; 需要登录认证<span class="sep"></span>
   </footer>
 </main>
 {password_script}
@@ -306,11 +306,11 @@ _LOGIN_HTML_TEMPLATE = """\
 
 _EMPTY_HTML = """\
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sign-in unavailable — Hermes Agent</title>
+<title>登录不可用 — Hermes Agent</title>
 <style>
   @font-face {
     font-family: 'Collapse';
@@ -375,14 +375,11 @@ _EMPTY_HTML = """\
 </head>
 <body>
 <main>
-<h1>Sign-in unavailable</h1>
-<p>This dashboard is bound to a non-loopback host but no authentication
-providers are available.</p>
-<p>Configure the bundled username/password provider or an OAuth provider.
-See the <a href="https://hermes-agent.nousresearch.com/docs/user-guide/features/web-dashboard#authentication-gated-mode">dashboard
-authentication documentation</a> for setup instructions.</p>
-<p>For auth-free local use, bind to <code>127.0.0.1</code> and connect through
-an SSH tunnel or Tailscale.</p>
+<h1>登录不可用</h1>
+<p>此面板绑定在非回环地址，但没有可用的登录方式。</p>
+<p>请配置内置的用户名/密码登录或 OAuth 登录。
+设置方法见 <a href="https://hermes-agent.nousresearch.com/docs/user-guide/features/web-dashboard#authentication-gated-mode">面板认证文档</a>。</p>
+<p>如需免认证的本地使用，请绑定 <code>127.0.0.1</code> 并通过 SSH 隧道或 Tailscale 访问。</p>
 </main>
 </body>
 </html>
@@ -421,13 +418,13 @@ _PASSWORD_FORM_SCRIPT = """\
           });
         }
         var msg = resp.status === 429
-          ? 'Too many attempts. Please wait and try again.'
-          : (resp.status === 401 ? 'Invalid username or password.'
-                                 : 'Sign-in failed. Please try again.');
+          ? '尝试次数过多，请稍后再试。'
+          : (resp.status === 401 ? '用户名或密码错误。'
+                                 : '登录失败，请重试。');
         if (err) { err.textContent = msg; err.hidden = false; }
         if (btn) { btn.disabled = false; }
       }).catch(function () {
-        if (err) { err.textContent = 'Network error. Please try again.'; err.hidden = false; }
+        if (err) { err.textContent = '网络错误，请重试。'; err.hidden = false; }
         if (btn) { btn.disabled = false; }
       });
     });
@@ -456,7 +453,7 @@ def render_login_html(*, next_path: str = "") -> str:
         _render_password_form(p, next_path) if getattr(p, "supports_password", False) else
         f'      <a class="provider-btn" '
         f'href="/auth/login?provider={html.escape(p.name, quote=True)}{next_qs}">'
-        f'Sign in with {html.escape(p.display_name)}</a>'
+        f'使用 {html.escape(p.display_name)} 登录</a>'
         for p in providers
     ]
     needs_password_script = any(getattr(p, "supports_password", False) for p in providers)
@@ -481,7 +478,7 @@ def render_native_provider_choice_html(
         href = html.escape(f"{authorize_path}?{urlencode({**common, 'provider': p.name})}",
                            quote=True)
         buttons.append(f'      <a class="provider-btn" href="{href}">'
-                       f'Sign in with {html.escape(p.display_name)}</a>')
+                       f'使用 {html.escape(p.display_name)} 登录</a>')
     if not buttons:
         return _EMPTY_HTML
     return _LOGIN_HTML_TEMPLATE.format(provider_buttons="\n".join(buttons), password_script="")
@@ -500,20 +497,20 @@ def _render_password_form(provider, next_path: str) -> str:
     return (
         f'      <form class="provider-form" data-provider="{pname}" '
         f'autocomplete="on">\n'
-        f'        <div class="form-title">Sign in with {plabel}</div>\n'
+        f'        <div class="form-title">使用 {plabel} 登录</div>\n'
         f'        <input type="hidden" name="next" value="{safe_next}">\n'
         f'        <label class="field">\n'
-        f'          <span class="field-label">Username</span>\n'
+        f'          <span class="field-label">用户名</span>\n'
         f'          <input class="field-input" type="text" name="username" '
         f'autocomplete="username" autocapitalize="none" '
         f'autocorrect="off" spellcheck="false" required>\n'
         f'        </label>\n'
         f'        <label class="field">\n'
-        f'          <span class="field-label">Password</span>\n'
+        f'          <span class="field-label">密码</span>\n'
         f'          <input class="field-input" type="password" name="password" '
         f'autocomplete="current-password" required>\n'
         f'        </label>\n'
         f'        <div class="form-error" role="alert" hidden></div>\n'
-        f'        <button class="provider-btn" type="submit">Sign in</button>\n'
+        f'        <button class="provider-btn" type="submit">登录</button>\n'
         f'      </form>'
     )
