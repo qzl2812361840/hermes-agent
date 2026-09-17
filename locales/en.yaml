@@ -473,3 +473,89 @@ gateway:
     session_db_unavailable_prefix: "Session database not available"
     session_not_found:           "Session not found in database."
     warn_passthrough:            "⚠️ {error}"
+
+turn_errors:
+  # Provider-layer failure codes
+  code:
+    auth:
+      title: "The model provider rejected the API key"
+      hint: "Fix the key with /model, then /retry."
+    auth_permanent:
+      title: "The model provider rejected the API key"
+      hint: "Fix the key with /model, then /retry."
+    billing:
+      title: "The model provider reports no credit left"
+      hint: "Top up the account or switch with /model."
+    billing_unverified:
+      title: "The model provider reports no credit left"
+      hint: "Top up the account or switch with /model."
+    rate_limit:
+      title: "The model provider is rate-limiting requests"
+      hint: "Wait a moment, then /retry."
+    upstream_rate_limit:
+      title: "The model provider is rate-limiting requests"
+      hint: "Wait a moment, then /retry."
+    overloaded:
+      title: "The model provider is overloaded"
+      hint: "Wait a moment, then /retry."
+    server_error:
+      title: "The model provider had an internal error"
+      hint: "Wait a moment, then /retry."
+    timeout:
+      title: "The model provider did not answer in time"
+      hint: "Try /retry; if it keeps happening, switch with /model."
+    context_overflow:
+      title: "The conversation is too long for this model"
+      hint: "Run /compress, then /retry."
+    payload_too_large:
+      title: "The request was too large for this model"
+      hint: "Run /compress, then /retry."
+    model_not_found:
+      title: "The model provider does not know this model"
+      hint: "Pick another model with /model."
+    content_policy_blocked:
+      title: "The model provider refused this request (content policy)"
+      hint: "Rephrase and send again."
+    provider_policy_blocked:
+      title: "The model provider refused this request (account policy)"
+      hint: "Switch with /model."
+    format_error:
+      title: "The model provider rejected the request format"
+      hint: "Try /retry; if it persists, switch with /model."
+    ssl_cert_verification:
+      title: "The connection to the model provider could not be verified (TLS)"
+      hint: "Check the endpoint's certificate, then /retry."
+  # Gateway-layer failure layers
+  layer:
+    auth:
+      title: "The model provider rejected the credentials"
+      hint: "Fix them with /model, then /retry."
+    billing:
+      title: "The model provider reports no credit left"
+      hint: "Top up the account or switch with /model."
+    endpoint:
+      title: "Your custom model endpoint did not answer"
+      hint: "Check the endpoint is running, then /retry."
+    streaming:
+      title: "The connection to the model provider dropped mid-reply"
+      hint: "Send /retry."
+    disk:
+      title: "The disk is full, so Hermes could not save the turn"
+      hint: "Free some space, then /retry."
+    gateway:
+      title: "Hermes hit an internal error while running this turn"
+      hint: "Send /retry; type /logs for the trace."
+    provider:
+      title: "The model provider returned an error"
+      hint: "Send /retry, or switch with /model."
+  default:
+    title: "The request failed"
+    hint: "Send /retry, or switch with /model."
+  message_not_answered: "Your message was not answered."
+  details_prefix: "Details"
+  busy_message: "session busy — Hermes is still replying. Stop the current reply first (Stop button, or Ctrl+C in a terminal), then run /{command}."
+  agent_init_failed: "Hermes could not start the assistant for this session. Details: {exc}. Check the model and provider with /model, or run `hermes setup` in a terminal to reconfigure."
+  agent_still_starting: "Hermes is still starting this session (loading tools), so this command could not run yet. Wait for the status bar to show ready and try again."
+  agent_build_abandoned: "agent build aborted: the session record was replaced before the build finished"
+  agent_missing_for_turn: "Hermes could not start the assistant for this session, so your message was not run. Reopen the session (or start a new one with /new) and send it again."
+  resume_failed: "Could not reopen that session (its transcript could not be read). Details: {exc}. Start a new session (/new), or pick another from /sessions."

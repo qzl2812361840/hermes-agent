@@ -13,7 +13,7 @@ const APPROVAL_OPTS = ['once', 'session', 'always', 'deny'] as const
 // tirith warning present → backend downgrades "always" to session scope, so drop it.
 const APPROVAL_OPTS_NO_ALWAYS = APPROVAL_OPTS.filter(o => o !== 'always')
 const APPROVAL_OPTS_SMART_DENY = ['once', 'deny'] as const
-const LABELS = { always: 'Always allow', deny: 'Deny', once: 'Allow once', session: 'Allow this session' } as const
+const LABELS = { always: '永久允许', deny: '拒绝', once: '仅此一次', session: '本次会话' } as const
 const CMD_PREVIEW_LINES = 10
 
 type ApprovalChoice = 'always' | 'deny' | 'once' | 'session'
@@ -81,6 +81,13 @@ export function approvalAction(
   return { kind: 'noop' }
 }
 
+interface ApprovalPromptProps {
+  cols?: number
+  onChoice: (s: string) => void
+  req: ApprovalReq
+  t: Theme
+}
+
 export function ApprovalPrompt({ cols = 80, onChoice, req, t }: ApprovalPromptProps) {
   const [sel, setSel] = useState(0)
   const opts = approvalOptions(req)
@@ -110,7 +117,7 @@ export function ApprovalPrompt({ cols = 80, onChoice, req, t }: ApprovalPromptPr
   return (
     <Box borderColor={t.color.warn} borderStyle="double" flexDirection="column" paddingX={1}>
       <Text bold color={t.color.warn}>
-        ⚠ approval required · {req.description}
+        ⚠ 审批通过 · {req.description}
       </Text>
 
       <Box flexDirection="column" paddingLeft={1}>
@@ -122,7 +129,7 @@ export function ApprovalPrompt({ cols = 80, onChoice, req, t }: ApprovalPromptPr
 
         {overflow > 0 ? (
           <Text color={t.color.muted}>
-            … +{overflow} more line{overflow === 1 ? '' : 's'} (full text above)
+            … +{overflow} 行更多内容（完整内容在上方）
           </Text>
         ) : null}
       </Box>
@@ -138,9 +145,19 @@ export function ApprovalPrompt({ cols = 80, onChoice, req, t }: ApprovalPromptPr
         </Text>
       ))}
 
-      <Text color={t.color.muted}>↑/↓ select · Enter confirm · 1-{opts.length} quick pick · Esc/Ctrl+C deny</Text>
+      <Text color={t.color.muted}>↑/↓ 选择 · 回车确认 · 1-{opts.length} 快捷选择 · Esc/Ctrl+C 拒绝</Text>
     </Box>
   )
+}
+
+interface ClarifyPromptProps {
+  cols?: number
+  onAnswer: (s: string) => void
+  onCancel: () => void
+  /** Batch mode: lock one question's answer (clarify.respond + question_id). */
+  onQuestionAnswer?: (qid: string, s: string) => void
+  req: ClarifyReq
+  t: Theme
 }
 
 export function ClarifyPrompt({ cols = 80, onAnswer, onCancel, onQuestionAnswer, req, t }: ClarifyPromptProps) {
@@ -198,8 +215,8 @@ export function ClarifyPrompt({ cols = 80, onAnswer, onCancel, onQuestionAnswer,
 
   const heading = (
     <Text bold>
-      <Text color={t.color.accent}>ask</Text>
-      <Text color={t.color.text}> {isBatch ? `${batch.length} questions` : req.question}</Text>
+      <Text color={t.color.accent}>询问</Text>
+      <Text color={t.color.text}> {isBatch ? `${batch.length} 个问题` : req.question}</Text>
     </Text>
   )
 
@@ -306,8 +323,8 @@ export function ClarifyPrompt({ cols = 80, onAnswer, onCancel, onQuestionAnswer,
 
   if (isBatch) {
     const hint = typing
-      ? `Enter ${remainingCount === 1 ? 'confirm and continue' : 'lock answer'} · Esc back`
-      : `↑/↓ select · Enter ${remainingCount === 1 ? 'confirm and continue' : 'lock answer'} · Tab/Shift+Tab switch question · Esc/Ctrl+C cancel`
+      ? `回车 ${remainingCount === 1 ? '确认并继续' : '锁定答案'} · Esc 返回`
+      : `↑/↓ 选择 · 回车 ${remainingCount === 1 ? '确认并继续' : '锁定答案'} · Tab/Shift+Tab 切换问题 · Esc/Ctrl+C 取消`
 
     return (
       <Box flexDirection="column">
@@ -331,7 +348,7 @@ export function ClarifyPrompt({ cols = 80, onAnswer, onCancel, onQuestionAnswer,
                 // current answers stay readable while Tab walks the list.
                 <Box paddingLeft={2}>
                   <Text color={answer ? t.color.ok : t.color.muted} italic={!answer}>
-                    {answer || '(skipped)'}
+                    {answer || '(已跳过)'}
                   </Text>
                 </Box>
               ) : null}
@@ -350,7 +367,7 @@ export function ClarifyPrompt({ cols = 80, onAnswer, onCancel, onQuestionAnswer,
                   </Box>
                 ) : (
                   <Box flexDirection="column" paddingLeft={2}>
-                    {[...activeChoices, 'Other (type your answer)'].map((c, ci) => (
+                    {[...activeChoices, '其他（输入自定义答案）'].map((c, ci) => (
                       <Text key={ci}>
                         <Text color={t.color.muted} {...chipRowProps(t, sel === ci)}>
                           {sel === ci ? '▸ ' : '  '}
@@ -366,7 +383,7 @@ export function ClarifyPrompt({ cols = 80, onAnswer, onCancel, onQuestionAnswer,
         })}
 
         <Text color={t.color.muted}>
-          {answeredCount}/{batch.length} answered · {hint}
+          {answeredCount}/{batch.length} 已回答 · {hint}
         </Text>
       </Box>
     )
@@ -389,8 +406,8 @@ export function ClarifyPrompt({ cols = 80, onAnswer, onCancel, onQuestionAnswer,
         </Box>
 
         <Text color={t.color.muted}>
-          Enter send · Esc {choices.length ? 'back' : 'cancel'} ·{' '}
-          {isMac ? 'Cmd+C copy · Cmd+V paste · Ctrl+C cancel' : 'Ctrl+C cancel'}
+          回车发送 · Esc {choices.length ? '返回' : '取消'} ·{' '}
+          {isMac ? 'Cmd+C 复制 · Cmd+V 粘贴 · Ctrl+C 取消' : 'Ctrl+C 取消'}
         </Text>
       </Box>
     )
@@ -400,7 +417,7 @@ export function ClarifyPrompt({ cols = 80, onAnswer, onCancel, onQuestionAnswer,
     <Box flexDirection="column">
       {heading}
 
-      {[...choices, 'Other (type your answer)'].map((c, i) => (
+      {[...choices, '其他（输入自定义答案）'].map((c, i) => (
         <Text key={i}>
           <Text color={t.color.muted} {...chipRowProps(t, sel === i)}>
             {sel === i ? '▸ ' : '  '}
@@ -409,9 +426,16 @@ export function ClarifyPrompt({ cols = 80, onAnswer, onCancel, onQuestionAnswer,
         </Text>
       ))}
 
-      <Text color={t.color.muted}>↑/↓ select · Enter confirm · 1-{choices.length} quick pick · Esc/Ctrl+C cancel</Text>
+      <Text color={t.color.muted}>↑/↓ 选择 · 回车确认 · 1-{choices.length} 快捷选择 · Esc/Ctrl+C 取消</Text>
     </Box>
   )
+}
+
+interface ConfirmPromptProps {
+  onCancel: () => void
+  onConfirm: () => void
+  req: ConfirmReq
+  t: Theme
 }
 
 export function ConfirmPrompt({ onCancel, onConfirm, req, t }: ConfirmPromptProps) {
@@ -444,8 +468,8 @@ export function ConfirmPrompt({ onCancel, onConfirm, req, t }: ConfirmPromptProp
   const accent = req.danger ? t.color.error : t.color.warn
 
   const rows = [
-    { color: t.color.text, label: req.cancelLabel ?? 'No' },
-    { color: req.danger ? t.color.error : t.color.text, label: req.confirmLabel ?? 'Yes' }
+    { color: t.color.text, label: req.cancelLabel ?? '否' },
+    { color: req.danger ? t.color.error : t.color.text, label: req.confirmLabel ?? '是' }
   ]
 
   return (
@@ -471,31 +495,7 @@ export function ConfirmPrompt({ onCancel, onConfirm, req, t }: ConfirmPromptProp
         </Text>
       ))}
 
-      <Text color={t.color.muted}>↑/↓ select · Enter confirm · Y/N quick · Esc cancel</Text>
+      <Text color={t.color.muted}>↑/↓ 选择 · 回车确认 · Y/N 快捷 · Esc 取消</Text>
     </Box>
   )
-}
-
-interface ApprovalPromptProps {
-  cols?: number
-  onChoice: (s: string) => void
-  req: ApprovalReq
-  t: Theme
-}
-
-interface ClarifyPromptProps {
-  cols?: number
-  onAnswer: (s: string) => void
-  onCancel: () => void
-  /** Batch mode: lock one question's answer (clarify.respond + question_id). */
-  onQuestionAnswer?: (qid: string, s: string) => void
-  req: ClarifyReq
-  t: Theme
-}
-
-interface ConfirmPromptProps {
-  onCancel: () => void
-  onConfirm: () => void
-  req: ConfirmReq
-  t: Theme
 }

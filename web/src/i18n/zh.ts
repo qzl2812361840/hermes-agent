@@ -645,6 +645,7 @@ export const zh: Translations = {
       what_counts: "计入条件",
       evidence_label: "证据",
       evidence_session_fallback: "会话",
+    fallback_providers: "备用提供方",
       no_evidence: "暂无证据",
     },
     latest: {

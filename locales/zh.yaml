@@ -460,3 +460,89 @@ Future messages in this room will use that transcript until `/reset` or another 
     session_db_unavailable_prefix: "会话数据库不可用"
     session_not_found:           "数据库中未找到该会话。"
     warn_passthrough:            "⚠️ {error}"
+
+turn_errors:
+  # Provider-layer failure codes
+  code:
+    auth:
+      title: "模型提供方拒绝了 API 密钥"
+      hint: "请用 /model 修复密钥，然后 /retry 重试。"
+    auth_permanent:
+      title: "模型提供方拒绝了 API 密钥"
+      hint: "请用 /model 修复密钥，然后 /retry 重试。"
+    billing:
+      title: "模型提供方报告余额不足"
+      hint: "请充值或用 /model 切换模型。"
+    billing_unverified:
+      title: "模型提供方报告余额不足"
+      hint: "请充值或用 /model 切换模型。"
+    rate_limit:
+      title: "模型提供方正在限制请求频率"
+      hint: "稍等片刻，然后 /retry 重试。"
+    upstream_rate_limit:
+      title: "模型提供方正在限制请求频率"
+      hint: "稍等片刻，然后 /retry 重试。"
+    overloaded:
+      title: "模型提供方过载"
+      hint: "稍等片刻，然后 /retry 重试。"
+    server_error:
+      title: "模型提供方发生内部错误"
+      hint: "稍等片刻，然后 /retry 重试。"
+    timeout:
+      title: "模型提供方未在规定时间内响应"
+      hint: "尝试 /retry；若持续出现，请用 /model 切换。"
+    context_overflow:
+      title: "对话过长，超出模型限制"
+      hint: "运行 /compress 压缩后，再 /retry 重试。"
+    payload_too_large:
+      title: "请求体过大，超出模型限制"
+      hint: "运行 /compress 压缩后，再 /retry 重试。"
+    model_not_found:
+      title: "模型提供方不识别该模型"
+      hint: "请用 /model 选择其他模型。"
+    content_policy_blocked:
+      title: "模型提供方拒绝了该请求（内容策略）"
+      hint: "请重新措辞后重发。"
+    provider_policy_blocked:
+      title: "模型提供方拒绝了该请求（账号策略）"
+      hint: "请用 /model 切换模型。"
+    format_error:
+      title: "模型提供方拒绝了请求格式"
+      hint: "尝试 /retry；若持续出现，请用 /model 切换。"
+    ssl_cert_verification:
+      title: "无法验证与模型提供方的连接 (TLS)"
+      hint: "请检查端点证书，然后 /retry 重试。"
+  # Gateway-layer failure layers
+  layer:
+    auth:
+      title: "模型提供方拒绝了凭据"
+      hint: "请用 /model 修复凭据，然后 /retry 重试。"
+    billing:
+      title: "模型提供方报告余额不足"
+      hint: "请充值或用 /model 切换模型。"
+    endpoint:
+      title: "自定义模型端点未响应"
+      hint: "请检查端点是否运行，然后 /retry 重试。"
+    streaming:
+      title: "与模型提供方的连接在回复中断"
+      hint: "发送 /retry 重试。"
+    disk:
+      title: "磁盘已满，Hermes 无法保存对话轮次"
+      hint: "请释放空间，然后 /retry 重试。"
+    gateway:
+      title: "Hermes 运行本轮对话时发生内部错误"
+      hint: "发送 /retry 重试；输入 /logs 查看追踪。"
+    provider:
+      title: "模型提供方返回错误"
+      hint: "发送 /retry 重试，或用 /model 切换。"
+  default:
+    title: "请求失败"
+    hint: "发送 /retry 重试，或用 /model 切换。"
+  message_not_answered: "您的消息未得到回复。"
+  details_prefix: "详情"
+  busy_message: "会话繁忙 — Hermes 正在回复中。请先停止当前回复（点击停止按钮，或终端中按 Ctrl+C），然后运行 /{command}。"
+  agent_init_failed: "Hermes 无法为此会话启动助手。详情：{exc}。请用 /model 检查模型和提供方，或在终端运行 `hermes setup` 重新配置。"
+  agent_still_starting: "Hermes 仍在启动此会话（正在加载工具），暂时无法运行该命令。请等待状态栏显示就绪后重试。"
+  agent_build_abandoned: "智能体构建中止：会话记录在构建完成前被替换"
+  agent_missing_for_turn: "Hermes 无法为此会话启动助手，因此您的消息未被运行。请重新打开该会话（或用 /new 开启新会话）并再次发送。"
+  resume_failed: "无法恢复该会话（无法读取对话记录）。详情：{exc}。请开启新会话（/new），或从 /sessions 中选择其他会话。"
