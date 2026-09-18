@@ -731,9 +731,16 @@ def _prepare_gateway_status_message(platform: Any, event_type: str, message: str
         return text
 
     text = _redact_gateway_user_facing_secrets(text)
+    # Localised catalogs (e.g. zh) render these lines in another language — map them back to English so the
+    # regexes below (built from the English template constants) still recognise them.
+    try:
+        from agent.status_i18n import normalize_status
+        matched_text = normalize_status(text)
+    except Exception:
+        matched_text = text
     # Opt-in `compression.progress_notices` lets ROUTINE (template-derived) progress through; other noise stays.
-    if _TELEGRAM_NOISY_STATUS_RE.search(text) and not (
-        _gateway_compression_progress_notices_enabled() and _COMPRESSION_PROGRESS_STATUS_RE.search(text)
+    if _TELEGRAM_NOISY_STATUS_RE.search(matched_text) and not (
+        _gateway_compression_progress_notices_enabled() and _COMPRESSION_PROGRESS_STATUS_RE.search(matched_text)
     ):
         return None
     if _looks_like_gateway_provider_error(text):
