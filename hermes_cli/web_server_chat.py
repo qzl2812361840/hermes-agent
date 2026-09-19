@@ -44,8 +44,24 @@ _RESIZE_RE = re.compile(rb"\x1b\[RESIZE:(\d+);(\d+)\]")
 # `\x1b[?25l` (hide cursor) and friends. A browser terminal emits these around
 # focus / paste handoffs: they answer the *application's* mode requests, no
 # keystroke produces one, and forwarding one leaves its trailing byte ("l" /
-# "h") sitting in the TUI input line. Strip them before the PTY ever sees them.
+# "h") sitting in the TUI input line. Strip them before the PTY sees them.
 _DEC_PRIVATE_MODE_RE = re.compile(rb"\x1b\[\?\d+[hl]")
+
+# Browser-terminal *auto replies*: focus in/out (`\x1b[I` / `\x1b[O`), OSC
+# colour reports (`\x1b]10;rgb:…` / `\x1b]11;rgb:…` terminated by BEL or ST)
+# and device-attribute answers (`\x1b[?1;2c`, `\x1b[>0;…c`). xterm.js emits the
+# whole set on every page (re)connect, so a tab that gets refreshed N times
+# pushes N copies into the PTY — and the TUI parser leaks a stray glyph (a
+# lone "l") into the prompt each time. No keypress can produce these bytes, so
+# dropping them cannot eat user input; they are terminal self-reports the Ink
+# app never asked for.
+_TERM_AUTOREPLY_RE = re.compile(
+    rb"(?:"
+    rb"\x1b\[[IO]"                                   # focus in / focus out
+    rb"|\x1b\][0-9]+;[^\x07\x1b]*(?:\x07|\x1b\\)"    # OSC report (BEL or ST)
+    rb"|\x1b\[[?>]?[0-9;]*c"                         # DA1 / DA2 / tertiary DA
+    rb")"
+)
 
 _PTY_READ_CHUNK_TIMEOUT = 0.2
 
@@ -123,9 +139,22 @@ async def _legacy_pump(ws: "WebSocket", bridge) -> None:
             # Resize escape is consumed locally, never written to the PTY.
             match = _RESIZE_RE.match(raw)
             if match and match.end() == len(raw):
-                bridge.resize(cols=int(match.group(1)), rows=int(match.group(2)))
+                cols, rows = int(match.group(1)), int(match.group(2))
+                # Only signal a real size change — see chat_ws.py for why the
+                # redundant per-reconnect RESIZE leaks an "l" into the prompt.
+                if (cols, rows) != getattr(bridge, "_ganiu_last_size", None):
+                    setattr(bridge, "_ganiu_last_size", (cols, rows))
+                    bridge.resize(cols=cols, rows=rows)
                 continue
+            # TEMP TRACE (2026-09-20) legacy 路径同样记录原始字节
+            try:
+                import time as _t
+                with open("/tmp/pty-input-trace-legacy.log", "ab") as _tf:
+                    _tf.write(b"%s %r\n" % (str(_t.time()).encode(), raw[:80]))
+            except Exception:
+                pass
             raw = _DEC_PRIVATE_MODE_RE.sub(b"", raw)
+            raw = _TERM_AUTOREPLY_RE.sub(b"", raw)
             if not raw:
                 continue
             if not await bridge.write(raw):

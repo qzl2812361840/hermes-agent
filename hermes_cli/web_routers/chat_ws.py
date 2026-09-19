@@ -431,7 +431,7 @@ async def _pty_fail(ws: WebSocket, exc: BaseException) -> None:
 
 @router.websocket("/api/pty")
 async def pty_ws(ws: WebSocket) -> None:
-    from hermes_cli.web_server_chat import PTY_REGISTRY, PtyBridge, PtyUnavailableError, _PTY_BRIDGE_AVAILABLE, _RESIZE_RE, _DEC_PRIVATE_MODE_RE
+    from hermes_cli.web_server_chat import PTY_REGISTRY, PtyBridge, PtyUnavailableError, _PTY_BRIDGE_AVAILABLE, _RESIZE_RE, _DEC_PRIVATE_MODE_RE, _TERM_AUTOREPLY_RE
     gate = await _ws_gate(ws, "pty")
     if gate is None:
         return
@@ -551,9 +551,25 @@ async def pty_ws(ws: WebSocket) -> None:
             # Resize escape is consumed locally, never written to the PTY.
             match = _RESIZE_RE.match(raw)
             if match and match.end() == len(raw):
-                session.bridge.resize(cols=int(match.group(1)), rows=int(match.group(2)))
+                cols, rows = int(match.group(1)), int(match.group(2))
+                # Only signal a real size change. Every page (re)connect
+                # re-sends RESIZE with the same geometry; forwarding that as a
+                # fresh TIOCSWINSZ makes the TUI re-layout on a no-op, which is
+                # what leaks a stray "l" into the input line once per refresh.
+                if (cols, rows) != getattr(session, "_ganiu_last_size", None):
+                    setattr(session, "_ganiu_last_size", (cols, rows))
+                    session.bridge.resize(cols=cols, rows=rows)
                 continue
+            # TEMP TRACE (2026-09-20) 抓「刷新页面往 PTY 写了什么」——排查游离 l。
+            # 删埋点时连同这 6 行一起删。日志 /tmp/pty-input-trace.log
+            try:
+                import time as _t
+                with open("/tmp/pty-input-trace.log", "ab") as _tf:
+                    _tf.write(b"%s %r\n" % (str(_t.time()).encode(), raw[:80]))
+            except Exception:
+                pass
             raw = _DEC_PRIVATE_MODE_RE.sub(b"", raw)
+            raw = _TERM_AUTOREPLY_RE.sub(b"", raw)
             if not raw:
                 continue
             if not await session.write(ws, raw):
