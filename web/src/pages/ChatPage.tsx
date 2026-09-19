@@ -356,24 +356,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     setReconnectGaveUp(false);
     setPtyState("connecting");
     setReconnectNonce((n) => n + 1);
-    // 双保险 ②：直接给 PTY 发 /new（等价手敲 /new），万一仍复用旧会话也能开新的
-    let tries = 0;
-    const sendNew = () => {
-      tries += 1;
-      const ws = wsRef.current;
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        try {
-          ws.send("/new");
-          window.setTimeout(() => {
-            const s = wsRef.current;
-            if (s && s.readyState === WebSocket.OPEN) s.send("\r");
-          }, 150);
-        } catch (_) {}
-        return;
-      }
-      if (tries < 60) window.setTimeout(sendNew, 250);
-    };
-    window.setTimeout(sendNew, 100);
   }, [clearReconnectTimer, searchParams, setSearchParams]);
   // Clear mobile-input tracking refs when the tab is hidden so stale state
   // from a previous /chat visit doesn't cause the mobile-replacement logic

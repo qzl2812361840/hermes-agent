@@ -881,7 +881,19 @@ function SidebarNavLink({
         to={path === "/chat" ? "/chat?new=1" : path}
         reloadDocument={path === "/chat"}
         end={path === "/sessions"}
-        onClick={closeMobile}
+        onClick={() => {
+          // 侧边栏「对话」= 开新会话：清掉本标签页的 PTY attach token，
+          // 让浏览器连不上旧终端 → 服务端另开一个新终端 → 全新会话
+          //（配合 display.tui_auto_resume_recent=false，新终端不会续接旧会话）
+          if (path === "/chat") {
+            try {
+              window.localStorage.removeItem("hermes.pty.token.chat");
+            } catch {
+              /* ignore */
+            }
+          }
+          closeMobile();
+        }}
         aria-label={collapsed ? navLabel : undefined}
         onFocus={collapsed ? showTooltip : undefined}
         onBlur={collapsed ? hideTooltip : undefined}
