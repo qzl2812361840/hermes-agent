@@ -342,12 +342,21 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     const next = new URLSearchParams(searchParams);
     next.delete("new");
     next.delete("resume");
+    // 双保险 ①：换 attach token + fresh=1 → 让服务端另开一个 PTY
+    //（配合 display.tui_auto_resume_recent=false，新 PTY 会 forge 一个全新会话）
+    forceFreshPtyRef.current = true;
+    reconnectAttemptRef.current = 0;
+    clearReconnectTimer();
+    blockedInputNoticeRef.current = false;
+    ptyInputLineRef.current = "";
+    mobileReplacementInputUntilRef.current = 0;
     setSearchParams(next, { replace: true });
     setBanner(null);
     setBannerAction(null);
     setReconnectGaveUp(false);
-    // 2026-09-19 真正可靠的做法：不靠"新 PTY/换 attach token"（服务端会沿用上一个会话），
-    // 直接给 PTY 发 /new —— 等价于用户手动敲 /new，必然开新会话。
+    setPtyState("connecting");
+    setReconnectNonce((n) => n + 1);
+    // 双保险 ②：直接给 PTY 发 /new（等价手敲 /new），万一仍复用旧会话也能开新的
     let tries = 0;
     const sendNew = () => {
       tries += 1;
