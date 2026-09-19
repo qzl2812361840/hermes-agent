@@ -117,13 +117,6 @@ TOOLSETS = {
         "trigger scheduled tasks",
         ["cronjob_manage"],
     ),
-    "federation": _ts(
-        "Federation — cross-machine agent communication. Discover peers, probe their "
-        "status, and delegate tasks to remote Hermes instances. Enabled via "
-        "federation.enabled in config.yaml with a configured peer list. "
-        "Auth via HMAC-SHA256 shared secrets.",
-        ["federation_discover", "federation_delegate"],
-    ),
     "file": _ts(
         "File manipulation tools: read, write, patch (with fuzzy matching), and "
         "search (content + files)",
@@ -161,6 +154,17 @@ TOOLSETS = {
         "block for human input, heartbeat during long ops, comment on threads, attach "
         "files, and (for orchestrators) list, unblock, and fan out tasks.",
         [t for t in _HERMES_CORE_TOOLS if t.startswith("kanban_")],
+    ),
+    "federation": _ts(
+        "Cross-machine agent communication (bailongma, MIT) — discover peers and delegate "
+        "tasks to remote Hermes instances. Requires federation.enabled in config.yaml plus a "
+        "peer list; auth is HMAC-SHA256 with per-peer shared secrets.",
+        ["federation_discover", "federation_delegate"],
+    ),
+    "phone": _ts(
+        "嘎妞手机操控 — 打开应用/点击/输入/滑动/截屏/手电筒/朗读等，经嘎妞 App 在手机上真实执行。"
+        "只在 GANIU_BACKEND_URL 配置后可用；命令进队列，手机在线时约 2 秒内执行并回报结果。",
+        ["phone_control"],
     ),
     "discord": _ts("Discord read and participate tools (fetch messages, search members, create threads)", ["discord"]),
     "discord_admin": _ts("Discord server management (list channels/roles, pin messages, assign roles)", ["discord_admin"]),
