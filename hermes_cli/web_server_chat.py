@@ -39,6 +39,14 @@ except ImportError:  # pragma: no cover - pywinpty / ptyprocess missing
     class PtyUnavailableError(RuntimeError):  # type: ignore[no-redef]
         """Stub when the platform PTY bridge cannot be imported."""
 _RESIZE_RE = re.compile(rb"\x1b\[RESIZE:(\d+);(\d+)\]")
+
+# DEC private-mode sets/resets — `\x1b[?2004l` (bracketed paste off),
+# `\x1b[?25l` (hide cursor) and friends. A browser terminal emits these around
+# focus / paste handoffs: they answer the *application's* mode requests, no
+# keystroke produces one, and forwarding one leaves its trailing byte ("l" /
+# "h") sitting in the TUI input line. Strip them before the PTY ever sees them.
+_DEC_PRIVATE_MODE_RE = re.compile(rb"\x1b\[\?\d+[hl]")
+
 _PTY_READ_CHUNK_TIMEOUT = 0.2
 
 # Back-off between idle PTY reads so a quiet terminal does not spin the event
@@ -116,6 +124,9 @@ async def _legacy_pump(ws: "WebSocket", bridge) -> None:
             match = _RESIZE_RE.match(raw)
             if match and match.end() == len(raw):
                 bridge.resize(cols=int(match.group(1)), rows=int(match.group(2)))
+                continue
+            raw = _DEC_PRIVATE_MODE_RE.sub(b"", raw)
+            if not raw:
                 continue
             if not await bridge.write(raw):
                 await _close_stalled_pty_input(ws, path="legacy")
