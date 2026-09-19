@@ -84,9 +84,7 @@ import { maybeReloadForLoopbackWsAuthFailure } from "@/lib/dashboard-auth-reload
 import {
   PTY_GAVE_UP_BANNER,
   PTY_RECONNECTING_BANNER,
-  PTY_SESSION_ENDED_MESSAGE,
   PTY_SESSION_ENDED_TERMINAL_LINE,
-  PTY_START_FAILED_MESSAGE,
   PTY_TOKEN_MISSING_BANNER,
   ptyReconnectExhausted,
   ptyRejectionBanner,
@@ -436,6 +434,26 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   // management profile. Changing it remounts the terminal (key below /
   // effect dep) so the user explicitly starts a fresh scoped session.
   const { profile: scopedProfile } = useProfileScope();
+
+  // Re-enter the conversation this tab was viewing instead of forcing a new
+  // chat: the PTY child is gone, but the transcript and the agent's context
+  // live server-side under the session id, so a `?resume=` reload puts the
+  // user straight back where they were. Falls back to the newest session when
+  // this tab was opened without an explicit resume target.
+  const resumeEndedSession = useCallback(async () => {
+    let target = resumeParam ?? "";
+    if (!target) {
+      try {
+        const page = await api.getSessions(1, 0, scopedProfile, "recent");
+        target = page.sessions?.[0]?.id ?? "";
+      } catch {
+        /* best-effort: fall through to a fresh chat below */
+      }
+    }
+    window.location.href = target
+      ? `/chat?resume=${encodeURIComponent(target)}`
+      : "/chat?new=1";
+  }, [resumeParam, scopedProfile]);
   const channel = useMemo(
     () => generateChannelId(`${resumeParam ?? ""}\0${scopedProfile}`),
     [resumeParam, scopedProfile],
@@ -2041,13 +2059,20 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-black/60">
               <div className="max-w-[min(32rem,calc(100vw-3rem))] text-center text-sm tracking-wide text-white/80">
                 {endedReason === "start-failed"
-                  ? PTY_START_FAILED_MESSAGE
-                  : PTY_SESSION_ENDED_MESSAGE}
+                  ? "聊天没能启动，原因已打印在上面的终端里。"
+                  : "会话连接已断开（如果是服务重启或崩溃，你的对话和上下文都还在服务端）。可以恢复继续聊，或开始一个新会话。"}
               </div>
               <div className="flex flex-wrap justify-center gap-2">
                 <Button
-                  onClick={startFreshPty}
+                  onClick={resumeEndedSession}
                   prefix={<RotateCcw className="h-4 w-4" />}
+                  aria-label="恢复此会话继续聊"
+                >
+                  恢复此会话
+                </Button>
+                <Button
+                  outlined
+                  onClick={startFreshPty}
                   aria-label="开始新的聊天会话"
                 >
                   开始新会话
@@ -2058,7 +2083,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                     onClick={() => navigate("/logs")}
                     aria-label="Open logs"
                   >
-                    Open logs
+                    查看日志
                   </Button>
                 )}
               </div>
