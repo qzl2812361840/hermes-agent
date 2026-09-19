@@ -342,18 +342,29 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     const next = new URLSearchParams(searchParams);
     next.delete("new");
     next.delete("resume");
-    forceFreshPtyRef.current = true;
-    reconnectAttemptRef.current = 0;
-    clearReconnectTimer();
-    blockedInputNoticeRef.current = false;
-    ptyInputLineRef.current = "";
-    mobileReplacementInputUntilRef.current = 0;
     setSearchParams(next, { replace: true });
     setBanner(null);
     setBannerAction(null);
     setReconnectGaveUp(false);
-    setPtyState("connecting");
-    setReconnectNonce((n) => n + 1);
+    // 2026-09-19 真正可靠的做法：不靠"新 PTY/换 attach token"（服务端会沿用上一个会话），
+    // 直接给 PTY 发 /new —— 等价于用户手动敲 /new，必然开新会话。
+    let tries = 0;
+    const sendNew = () => {
+      tries += 1;
+      const ws = wsRef.current;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        try {
+          ws.send("/new");
+          window.setTimeout(() => {
+            const s = wsRef.current;
+            if (s && s.readyState === WebSocket.OPEN) s.send("\r");
+          }, 150);
+        } catch (_) {}
+        return;
+      }
+      if (tries < 60) window.setTimeout(sendNew, 250);
+    };
+    window.setTimeout(sendNew, 100);
   }, [clearReconnectTimer, searchParams, setSearchParams]);
   // Clear mobile-input tracking refs when the tab is hidden so stale state
   // from a previous /chat visit doesn't cause the mobile-replacement logic
