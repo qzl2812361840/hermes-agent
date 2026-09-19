@@ -876,7 +876,8 @@ function SidebarNavLink({
       onMouseLeave={collapsed ? hideTooltip : undefined}
     >
       <NavLink
-        to={path}
+        // 侧边栏「对话」入口 = 开一个新对话：交给 /chat?new=1，由 ChatPage 消费后从地址栏抹掉
+        to={path === "/chat" ? "/chat?new=1" : path}
         end={path === "/sessions"}
         onClick={closeMobile}
         aria-label={collapsed ? navLabel : undefined}

@@ -93,6 +93,9 @@ HARDLINE_PATTERNS = [
     (_RM_FLAG_PREFIX + _hardline_rm_path(r'/(?:(?:\.\.?)?/)*(?:\.\.?)?\**|/ \*'), "recursive delete of root filesystem"),
     (_RM_FLAG_PREFIX + _hardline_rm_path(_HARDLINE_SYSTEM_DIRS), "recursive delete of system directory"),
     (_RM_FLAG_PREFIX + _hardline_rm_path(r'(?:~|\$\{?HOME\}?)(?:/?|/\*)?'), "recursive delete of home directory"),
+    # 2026-09-19 商业资产硬底线：审批模式设为 off（全自动通过）期间也不可绕过。
+    # 商业代码 / 备份 / 用户数据 / k3s 用户卷 的整目录递归删除一律硬拦。
+    (_RM_FLAG_PREFIX + _hardline_rm_path(r'/d/(?:嘎妞后端|ga_niu_app|backups|users|k3s-users)(?:/\*)?'), "recursive delete of ganiu business data"),
     # Command-name rules (mkfs, dd, kill, shutdown...) are _CMDPOS-anchored so quoted prose
     # (`echo "does this use mkfs?"`) cannot trip the floor.
     # See #93392.

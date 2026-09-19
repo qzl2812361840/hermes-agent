@@ -334,6 +334,27 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     setPtyState("connecting");
     setReconnectNonce((n) => n + 1);
   }, [clearReconnectTimer, searchParams, setSearchParams]);
+  // 侧边栏「对话」入口（/chat?new=1）= 直接开一个新对话：清掉 resume、强制新 PTY，
+  // 然后把 new 参数从地址栏抹掉（之后刷新页面仍回到当前会话，不会反复新开）。
+  useEffect(() => {
+    if (searchParams.get("new") !== "1") return;
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("new");
+    next.delete("resume");
+    forceFreshPtyRef.current = true;
+    reconnectAttemptRef.current = 0;
+    clearReconnectTimer();
+    blockedInputNoticeRef.current = false;
+    ptyInputLineRef.current = "";
+    mobileReplacementInputUntilRef.current = 0;
+    setSearchParams(next, { replace: true });
+    setBanner(null);
+    setBannerAction(null);
+    setReconnectGaveUp(false);
+    setPtyState("connecting");
+    setReconnectNonce((n) => n + 1);
+  }, [clearReconnectTimer, searchParams, setSearchParams]);
   // Clear mobile-input tracking refs when the tab is hidden so stale state
   // from a previous /chat visit doesn't cause the mobile-replacement logic
   // to misfire on the next activation (#106403: repeated last character).
