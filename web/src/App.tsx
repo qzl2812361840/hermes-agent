@@ -876,8 +876,10 @@ function SidebarNavLink({
       onMouseLeave={collapsed ? hideTooltip : undefined}
     >
       <NavLink
-        // 侧边栏「对话」入口 = 开一个新对话：交给 /chat?new=1，由 ChatPage 消费后从地址栏抹掉
+        // 侧边栏「对话」入口 = 开一个新对话：交给 /chat?new=1，由 ChatPage 消费后从地址栏抹掉。
+        // reloadDocument: 强制整页重新加载，避免"持久化的聊天宿主"沿用上一个会话(点对话看到的还是老对话)。
         to={path === "/chat" ? "/chat?new=1" : path}
+        reloadDocument={path === "/chat"}
         end={path === "/sessions"}
         onClick={closeMobile}
         aria-label={collapsed ? navLabel : undefined}
