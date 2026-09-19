@@ -3867,6 +3867,9 @@ class APIServerAdapter(OpenAICompatRoutesMixin, BasePlatformAdapter):
                     # the OpenAI-compatible client can raise its own dialog. Registered on the
                     # same session key the gate resolves (chat_id), unregistered in `finally`.
                     approval_session_key = session_id or gateway_session_key or effective_task_id
+                    # 2026-09-20 升级补丁：官方版本把这一行的初始化吃掉了，只留了后面 `if` 里的使用
+                    # → 会 UnboundLocalError（整个 /v1/chat/completions 500）。这里补回来。
+                    _ganiu_approval_registered = False
                     if approval_target_q is not None:
                         from tools.approval import register_gateway_notify as _register_gw_notify
 
