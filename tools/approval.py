@@ -887,6 +887,14 @@ def _human_decision(spec: _GateSpec, *, command: str, description: str,
                             reason=f"approval was withdrawn before the user answered ({decision['cancelled']})",
                             reason_addendum="", timeout_addendum="", deny_reason=None)
             if not decision["resolved"]:
+                # ganiu rule (2026-09-20): 超时后怎么办由用户在 App 高级设置里选。
+                # 默认 deny（失败关闭、最安全）；选了"超时自动通过"则放行。
+                _ta = (os.environ.get("HERMES_APPROVAL_TIMEOUT_ACTION") or "").strip().lower()
+                if _ta in ("approve", "allow", "yes", "on", "true", "1"):
+                    logger.warning("ganiu: approval timed out → AUTO-APPROVED per user setting: %s", command)
+                    result = grant("once")
+                    result["auto_approved_on_timeout"] = True
+                    return result
                 # ganiu rule (2026-08-31): delete-class commands the operator explicitly
                 # asked to run are executed when nobody answers in time — do not hang.
                 if auto_execute_on_timeout:
@@ -931,6 +939,13 @@ def _human_decision(spec: _GateSpec, *, command: str, description: str,
                                        smart_denied=smart_denied, approval_callback=approval_callback)
     approval_context._fire_approval_hook("post_approval_response", **hook_kwargs, choice=choice)
     if choice == "timeout":
+        # ganiu rule (2026-09-20): 先看用户的超时策略设置（App 高级设置）。
+        _ta2 = (os.environ.get("HERMES_APPROVAL_TIMEOUT_ACTION") or "").strip().lower()
+        if _ta2 in ("approve", "allow", "yes", "on", "true", "1"):
+            logger.warning("ganiu: CLI approval timed out → AUTO-APPROVED per user setting.")
+            result = grant("once")
+            result["auto_approved_on_timeout"] = True
+            return result
         # ganiu rule (2026-08-31): delete-class actions run on timeout instead of hanging.
         if auto_execute_on_timeout:
             logger.warning("ganiu rule: CLI approval timed out for delete-class action, auto-executing.")

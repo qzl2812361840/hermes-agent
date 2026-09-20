@@ -4,6 +4,7 @@ globals at install time (method_ctx.bind_module), so they reference server.py gl
 """
 
 from __future__ import annotations
+import os
 
 import logging
 
@@ -712,6 +713,16 @@ def _rebind_live_transport(sid: str, session: dict, transport: Transport) -> Non
         _cancel_ws_orphan_reap(sid)  # the client is back — a pending ws-orphan reap must not fire
 
 
+def _ws_orphan_keep_running() -> bool:
+    """ganiu (2026-09-20): 会话断开后，正在跑的任务是否一直跑到完成（默认开）。
+
+    用户要求：TUI 前端 / 嘎妞 App 断线后，任务仍然在服务器上自动跑到完成为止。
+    关掉则回到上游行为（detached 且活动时钟陈旧约 10 分钟后中断回收）。
+    """
+    raw = (os.environ.get("HERMES_TUI_KEEP_RUNNING_WHEN_DETACHED") or "").strip().lower()
+    return raw not in ("0", "false", "no", "off")
+
+
 def _ws_orphan_turn_activity_is_fresh(session: dict) -> bool:
     """Whether a detached RUNNING turn's activity clock (``_touch_activity``) is still fresh — the reaper must NOT
     interrupt healthy detached work (closed laptop). Conservative: disabled threshold, missing/opaque agent, unreadable
@@ -782,6 +793,11 @@ def _schedule_ws_orphan_reap(
                 reschedule_delay = _WS_ORPHAN_REAP_GRACE_S
             elif not current.get("running"):
                 session = _pop_session_by_id(sid)
+            elif _ws_orphan_keep_running():
+                # ganiu: 断线也要把任务跑完（用户设置）——detached 的 running turn 一律继续，
+                # 直到它自己结束，不再因「活动时钟陈旧」被中断。空闲/已结束的会话照旧回收（防泄漏）。
+                logger.debug("client_gone sid=%s action=keep-running (user setting)", sid)
+                reschedule_delay = _WS_ORPHAN_REAP_GRACE_S
             elif not current.get("_client_gone_interrupt_requested") and _ws_orphan_turn_activity_is_fresh(current):
                 # Client-absent but producing: keep running detached (the sentinel buffers emits), re-check each grace.
                 logger.debug("client_gone sid=%s action=defer (turn activity fresh; stale threshold %.0fs)",
