@@ -35,13 +35,13 @@ const detailLine = (raw: string | undefined): string | null => {
 // ── Backend process lifecycle ─────────────────────────────────────────────
 
 export const BACKEND_RESTARTING =
-  'Hermes stopped unexpectedly — restarting and reopening your chat (the reply in progress was lost).'
+  'Hermes 意外停止——正在重启并重新打开您的对话（进行中的回复已丢失）。'
 
-export const BACKEND_RESTARTING_ACTIVITY = 'Hermes stopped unexpectedly · restarting…'
+export const BACKEND_RESTARTING_ACTIVITY = 'Hermes 意外停止 · 正在重启…'
 
 // Attached (dashboard / embedded) mode: only the socket dropped; Hermes and any
 // reply in progress are still alive on the backend and come back on reconnect.
-export const CONNECTION_LOST = 'Connection to Hermes lost — reconnecting and reopening your chat…'
+export const CONNECTION_LOST = '与 Hermes 的连接已断开——正在重连并重新打开您的对话…'
 
 export const CONNECTION_LOST_ACTIVITY = 'connection lost · reconnecting…'
 
@@ -52,14 +52,14 @@ export const backendGaveUp = (code: null | number, lastLine?: string): string =>
   return [
     `Hermes stopped${exit} and could not be restarted. Your chat is saved.`,
     detail,
-    'Hermes keeps trying to reconnect in the background and reopens this chat when it succeeds; if it does not, type /resume.',
-    'Type /logs for the full log, or /quit and run `hermes doctor` to check the install.'
+    'Hermes 会在后台持续重连，成功后自动重新打开本对话；若一直失败，请输入 /resume。',
+    '输入 /logs 查看完整日志，或 /quit 后运行 `hermes doctor` 检查安装。'
   ]
     .filter(Boolean)
     .join('\n')
 }
 
-export const BACKEND_GAVE_UP_ACTIVITY = 'Hermes stopped · /logs for details'
+export const BACKEND_GAVE_UP_ACTIVITY = 'Hermes 已停止 · 详情见 /logs'
 
 /** Last line of the backend log tail that is not our own [lifecycle]/[startup] bookkeeping. */
 export const lastStderrLine = (tail: string): string | undefined =>
@@ -77,7 +77,7 @@ export const backendReconnecting = (attempt: number | undefined, delayMs: number
 }
 
 export const BACKEND_SLOW_START =
-  'Hermes is taking longer than usual to start. Still waiting… If it never connects: /logs shows the last backend output; /quit and run `hermes doctor`.'
+  'Hermes 启动比平时慢，仍在等待…若始终连不上：/logs 可看后端最后的输出；/quit 后运行 `hermes doctor`。'
 
 export const BACKEND_SLOW_START_STATUS = 'still starting…'
 
@@ -114,7 +114,7 @@ export const isVersionSkewError = (err: unknown): boolean => {
 }
 
 export const VERSION_SKEW_MESSAGE =
-  'The terminal UI and the Hermes backend are out of sync (different versions). Run /update, or exit and run `hermes update`, then start the TUI again.'
+  '终端界面与 Hermes 后端版本不一致。请运行 /update，或退出后运行 `hermes update`，再重新打开界面。'
 
 const SESSION_NOT_FOUND_RE = /session not found/i
 const NOT_CONNECTED_RE = /^gateway not (?:connected|running)\b/
@@ -129,12 +129,12 @@ const RPC_ERROR_ROWS: RpcErrorRow[] = [
   [
     (code, text) => (code === RPC_SESSION_NOT_FOUND || code === undefined) && SESSION_NOT_FOUND_RE.test(text),
     () =>
-      'This chat is no longer attached to the backend (it was idle or the backend restarted). Your history is saved: type /resume to reopen it.'
+      '本对话已与后端断开（闲置过久或后端重启）。记录已保存：输入 /resume 重新打开。'
   ],
   [
     (_code, text) => NOT_CONNECTED_RE.test(text),
     () =>
-      'Hermes is not connected right now, so that was not sent. It reconnects automatically; wait a moment and try again, or type /logs if this persists.'
+      '当前未连接 Hermes，消息没有发出去。会自动重连，稍等片刻再试；若持续如此请输入 /logs。'
   ],
   [
     (_code, text) => TIMED_OUT_RE.exec(text),
@@ -223,42 +223,42 @@ export const shouldFallbackToDispatch = (err: unknown): boolean => {
 // ── Turn failures (message.complete status=error) ─────────────────────────
 
 const TURN_CODE_COPY: Record<string, [string, string]> = {
-  auth: ['The model provider rejected the API key', 'Fix the key with /model, then /retry.'],
-  auth_permanent: ['The model provider rejected the API key', 'Fix the key with /model, then /retry.'],
-  billing: ['The model provider reports no credit left', 'Top up the account or switch with /model.'],
-  billing_unverified: ['The model provider reports no credit left', 'Top up the account or switch with /model.'],
-  content_policy_blocked: ['The model provider refused this request (content policy)', 'Rephrase and send again.'],
-  context_overflow: ['The conversation is too long for this model', 'Run /compress, then /retry.'],
-  format_error: ['The model provider rejected the request format', 'Try /retry; if it persists, switch with /model.'],
-  model_not_found: ['The model provider does not know this model', 'Pick another model with /model.'],
-  overloaded: ['The model provider is overloaded', 'Wait a moment, then /retry.'],
-  payload_too_large: ['The request was too large for this model', 'Run /compress, then /retry.'],
-  provider_policy_blocked: ['The model provider refused this request (account policy)', 'Switch with /model.'],
-  rate_limit: ['The model provider is rate-limiting requests', 'Wait a moment, then /retry.'],
-  server_error: ['The model provider had an internal error', 'Wait a moment, then /retry.'],
+  auth: ['模型提供方拒绝了 API 密钥', '请用 /model 修复密钥，然后 /retry 重试。'],
+  auth_permanent: ['模型提供方拒绝了 API 密钥', '请用 /model 修复密钥，然后 /retry 重试。'],
+  billing: ['模型提供方报告余额不足', '请充值或用 /model 切换模型。'],
+  billing_unverified: ['模型提供方报告余额不足', '请充值或用 /model 切换模型。'],
+  content_policy_blocked: ['模型提供方拒绝了这条请求（内容政策）', '换个说法再发一次。'],
+  context_overflow: ['对话对这个模型来说太长了', '请运行 /compress，然后 /retry 重试。'],
+  format_error: ['模型提供方拒绝了请求格式', '请 /retry 重试；若持续出现，用 /model 切换模型。'],
+  model_not_found: ['模型提供方不认识这个模型', '请用 /model 选择其他模型。'],
+  overloaded: ['模型提供方负载过高', '稍等片刻，然后 /retry 重试。'],
+  payload_too_large: ['请求对这个模型来说太大了', '请运行 /compress，然后 /retry 重试。'],
+  provider_policy_blocked: ['模型提供方拒绝了这条请求（账号策略）', '请用 /model 切换模型。'],
+  rate_limit: ['模型提供方正在限制请求频率', '稍等片刻，然后 /retry 重试。'],
+  server_error: ['模型提供方内部错误', '稍等片刻，然后 /retry 重试。'],
   ssl_cert_verification: [
-    'The connection to the model provider could not be verified (TLS)',
-    "Check the endpoint's certificate, then /retry."
+    '无法验证与模型提供方的连接（TLS）',
+    "请检查该端点的证书，然后 /retry 重试。"
   ],
-  timeout: ['The model provider did not answer in time', 'Try /retry; if it keeps happening, switch with /model.'],
+  timeout: ['模型提供方没有及时应答', '请 /retry 重试；若反复出现，用 /model 切换模型。'],
   upstream_blocked: [
-    'A firewall/CDN in front of the model provider blocked the request',
-    "Set a User-Agent via the provider's extra_headers, or switch with /model."
+    '模型提供方前面的防火墙/CDN 拦截了请求',
+    "请在该提供方的 extra_headers 里设置 User-Agent，或用 /model 切换模型。"
   ],
-  upstream_rate_limit: ['The model provider is rate-limiting requests', 'Wait a moment, then /retry.']
+  upstream_rate_limit: ['模型提供方正在限制请求频率', '稍等片刻，然后 /retry 重试。']
 }
 
 const TURN_LAYER_COPY: Record<string, [string, string]> = {
-  auth: ['The model provider rejected the credentials', 'Fix them with /model, then /retry.'],
-  billing: ['The model provider reports no credit left', 'Top up the account or switch with /model.'],
-  disk: ['The disk is full, so Hermes could not save the turn', 'Free some space, then /retry.'],
-  endpoint: ['Your custom model endpoint did not answer', 'Check the endpoint is running, then /retry.'],
-  gateway: ['Hermes hit an internal error while running this turn', 'Send /retry; type /logs for the trace.'],
-  provider: ['The model provider returned an error', 'Send /retry, or switch with /model.'],
-  streaming: ['The connection to the model provider dropped mid-reply', 'Send /retry.']
+  auth: ['模型提供方拒绝了凭据', '请用 /model 修复，然后 /retry 重试。'],
+  billing: ['模型提供方报告余额不足', '请充值或用 /model 切换模型。'],
+  disk: ['磁盘已满，Hermes 无法保存这一轮', '请清理空间，然后 /retry 重试。'],
+  endpoint: ['你的自定义模型端点没有应答', '请确认端点正在运行，然后 /retry 重试。'],
+  gateway: ['Hermes 在运行这一轮时发生内部错误', '请发送 /retry；输入 /logs 查看堆栈。'],
+  provider: ['模型提供方返回了错误', '请发送 /retry，或用 /model 切换模型。'],
+  streaming: ['与模型提供方的连接在回复中途断开', '请发送 /retry。']
 }
 
-const TURN_DEFAULT_COPY: [string, string] = ['The request failed', 'Send /retry, or switch with /model.']
+const TURN_DEFAULT_COPY: [string, string] = ['请求失败', '请发送 /retry，或用 /model 切换模型。']
 
 export interface TurnFailure {
   error?: null | string
@@ -276,7 +276,7 @@ export const describeTurnFailure = (payload: TurnFailure): string => {
   // The backend always sets recoverable=true on a turn error; error_surface.retryable
   // is the signal that actually says whether /retry can help.
   const retryable = (surface as { retryable?: unknown }).retryable !== false && payload.recoverable !== false
-  const nextStep = retryable ? hint : hint.replace(/(?:Send|Try) \/retry/, 'Pick another model with /model')
+  const nextStep = retryable ? hint : hint.replace(/(?:请发送|发送|试试)?\\s*\/retry[^，。]*[，。]?/, '请用 /model 选择其他模型。')
   const raw = (payload.error ?? '').replace(/^Error:\s*/, '')
 
   return [`${title}${provider}. Your message was not answered.`, detailLine(raw), nextStep].filter(Boolean).join('\n')
@@ -293,14 +293,14 @@ export const isBareErrorText = (text: string, error: null | string | undefined):
 
 const PROMPT_TIMEOUT_COPY: Record<string, string> = {
   secret:
-    'Secret prompt closed: no answer in time, so the step that needed it was skipped. Send your request again when you are ready to enter it.',
-  sudo: 'Password prompt closed: no answer in time, so the command was skipped. Send your request again when you are ready to enter it.',
+    '密钥输入已关闭：超时未作答，需要它的那一步被跳过了。准备好输入时请重新发起请求。',
+  sudo: '密码输入已关闭：超时未作答，命令被跳过了。准备好输入时请重新发起请求。',
   'vault.code':
-    'Verification-code prompt closed: no answer in time, so the sign-in was skipped. Send your request again when you have the code.',
+    '验证码输入已关闭：超时未作答，登录被跳过了。拿到验证码后请重新发起请求。',
   'vault.save_login':
-    'Save-login prompt closed: no answer in time, so nothing was saved. Send your request again when you are ready.',
+    '保存登录已关闭：超时未作答，未保存任何内容。准备好时请重新发起请求。',
   'vault.unlock_prompt':
-    'Unlock prompt closed: no answer in time, so the password manager stayed locked. Send your request again when you are ready to unlock it.'
+    '解锁已关闭：超时未作答，密码库保持锁定。准备解锁时请重新发起请求。'
 }
 
 export const promptTimeoutNotice = (method: string | undefined, reason: string | undefined): null | string =>
@@ -326,4 +326,4 @@ export const describeCredentialWarning = (warning: string): string => {
 // ── Empty states ──────────────────────────────────────────────────────────
 
 export const NO_SKILLS_INSTALLED =
-  'No skills installed yet. Type /skills browse to see the catalog, or /skills install <name>.'
+  '还没有安装任何技能。输入 /skills browse 查看目录，或 /skills install <名称> 安装。'
