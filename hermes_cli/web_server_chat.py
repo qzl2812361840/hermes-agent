@@ -60,8 +60,14 @@ _TERM_AUTOREPLY_RE = re.compile(
     rb"\x1b\[[IO]"                                   # focus in / focus out
     rb"|\x1b\][0-9]+;[^\x07\x1b]*(?:\x07|\x1b\\)"    # OSC report (BEL or ST)
     rb"|\x1b\[[?>]?[0-9;]*c"                         # DA1 / DA2 / tertiary DA
+    rb"|\x0c"                                        # Ctrl+L (FF) — see below
     rb")"
 )
+
+# 2026-09-20 定位：前端 xterm 每次「连接/重连」都会往 PTY 发一个 0x0C（Ctrl+L）。Ink 的
+# 按键解析把这个控制字符当成可打印字符，直接插进输入行——而 0x0C 渲染出来就是一个 "l"。
+# 于是一次刷新就在下一条消息前面多一个 l（刷新 N 次 = N 个 l，实测 lllPROBEABCD）。
+# 它不是用户能敲出来的输入，且 PTY 里 Ctrl+L 的语义只是「重绘」，丢弃它不影响任何功能。
 
 _PTY_READ_CHUNK_TIMEOUT = 0.2
 
