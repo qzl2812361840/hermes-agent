@@ -20,8 +20,8 @@ export function billingDialogCopy(block: BillingBlock): BillingDialogCopy {
     return {
       cancelLabel: 'Dismiss',
       confirmLabel: 'Top up',
-      detail: 'Your Nous credit balance is exhausted — top up to keep going.',
-      title: 'Out of Nous credits'
+      detail: '你的 Nous 余额已用尽——充值后可继续。',
+      title: 'Nous 余额不足'
     }
   }
 
@@ -29,7 +29,7 @@ export function billingDialogCopy(block: BillingBlock): BillingDialogCopy {
 
   return {
     cancelLabel: 'Dismiss',
-    confirmLabel: block.billing_url ? 'Open billing page' : 'Switch provider',
+    confirmLabel: block.billing_url ? '打开计费页面' : '切换提供方',
     detail: `${label} reports your credits or billing are exhausted.`,
     title: `Out of credits · ${label}`
   }

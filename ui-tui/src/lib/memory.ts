@@ -93,7 +93,7 @@ export async function captureMemoryDiagnostics(trigger: MemoryTrigger): Promise<
     heapStats.number_of_detached_contexts > 0 &&
       `${heapStats.number_of_detached_contexts} detached context(s) — possible component/closure leak`,
     activeHandles > 100 && `${activeHandles} active handles — possible timer/socket leak`,
-    nativeMemory > usage.heapUsed && 'Native memory > heap — leak may be in native addons',
+    nativeMemory > usage.heapUsed && '原生内存 > 堆内存——泄漏可能在原生插件里',
     mbPerHour > 100 && `High memory growth rate: ${mbPerHour.toFixed(1)} MB/hour`,
     openFileDescriptors && openFileDescriptors > 500 && `${openFileDescriptors} open FDs — possible file/socket leak`
   ].filter((s): s is string => typeof s === 'string')
@@ -105,7 +105,7 @@ export async function captureMemoryDiagnostics(trigger: MemoryTrigger): Promise<
       potentialLeaks,
       recommendation: potentialLeaks.length
         ? `WARNING: ${potentialLeaks.length} potential leak indicator(s). See potentialLeaks.`
-        : 'No obvious leak indicators. Inspect heap snapshot for retained objects.'
+        : '没有明显的泄漏迹象。可检查堆快照中的保留对象。'
     },
     memoryGrowthRate: { bytesPerSecond, mbPerHour },
     memoryUsage: {

@@ -406,7 +406,7 @@ export function Journey({ gw, onClose, t }: JourneyProps) {
 
   // ── Item: a single memory, body scrolled via the shared ScrollBox ──
   if (mode === 'item' && activeBucket && activeNode) {
-    const body = activeNode.body ? activeNode.body.split(/\r?\n/) : ['No additional detail recorded yet.']
+    const body = activeNode.body ? activeNode.body.split(/\r?\n/) : ['暂无更多记录。']
 
     return (
       <Box alignItems="stretch" flexDirection="column" flexGrow={1} paddingX={1} paddingY={1}>

@@ -684,7 +684,7 @@ export function ActiveSessionSwitcher({
   const newRowStyle = newSelectedRow ? selectedSessionRowStyle(t) : null
   const newRowTextColor = newRowStyle?.color
   const newRowMarkerColor = newSessionMarkerColor(t, newSelectedRow)
-  const promptTitle = draftTitleFromPrompt(draft) || 'Start a new live session'
+  const promptTitle = draftTitleFromPrompt(draft) || '开一个新的实时会话'
 
   return (
     <Box flexDirection="column" width={width}>

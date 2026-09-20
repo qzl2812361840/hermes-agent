@@ -87,7 +87,7 @@ function isScopeDenial(r: { error?: string; ok?: boolean } | null): boolean {
  */
 function errorResult(r: { error?: string; message?: string; portal_url?: null | string } | null): SubscriptionResult {
   return {
-    message: r?.message || r?.error || 'Something went wrong. Try again, or manage on the portal.',
+    message: r?.message || r?.error || '出了点问题。请重试，或到门户里管理。',
     ok: false,
     recoveryUrl: r?.portal_url ?? null
   }
@@ -114,7 +114,7 @@ function upgradeResult(r: null | SubscriptionUpgradeResponse, pendingTierId?: nu
 
   if (r.reason === 'authentication_required' || r.reason === 'subscription_payment_intent_requires_action') {
     return {
-      message: 'Please verify your card in the portal to finish this upgrade.',
+      message: '请在门户里完成银行卡验证以完成本次升级。',
       ok: false,
       recoveryUrl: r.recovery_url ?? null
     }
@@ -122,7 +122,7 @@ function upgradeResult(r: null | SubscriptionUpgradeResponse, pendingTierId?: nu
 
   if (r.reason === 'card_declined') {
     return {
-      message: 'Your card was declined — try a different card on the portal.',
+      message: '银行卡被拒——请到门户换一张卡。',
       ok: false,
       recoveryUrl: r.recovery_url ?? null
     }
@@ -145,7 +145,7 @@ function upgradeResult(r: null | SubscriptionUpgradeResponse, pendingTierId?: nu
 
   if (r.status === 'requires_action') {
     return {
-      message: 'This upgrade needs extra verification (3DS). Finish it on the portal.',
+      message: '本次升级需要额外验证（3DS）。请到门户完成。',
       ok: false,
       recoveryUrl: r.recovery_url ?? null
     }
@@ -153,7 +153,7 @@ function upgradeResult(r: null | SubscriptionUpgradeResponse, pendingTierId?: nu
 
   if (r.status === 'payment_failed') {
     return {
-      message: 'Your card was declined. Update your payment method on the portal and try again.',
+      message: '银行卡被拒。请到门户更新支付方式后重试。',
       ok: false,
       recoveryUrl: r.recovery_url ?? null
     }
@@ -165,24 +165,24 @@ function upgradeResult(r: null | SubscriptionUpgradeResponse, pendingTierId?: nu
 /** Map a failed remote-spending step-up to the right recovery copy (typed). */
 function stepUpDenialResult(res: { error?: string; message?: string }): SubscriptionResult {
   if (res.error === 'session_revoked') {
-    return { message: 'Your session expired — run /portal to log in again, then retry the change.', ok: false }
+    return { message: '登录已过期——请运行 /portal 重新登录，然后重试。', ok: false }
   }
 
   if (res.error === 'remote_spending_revoked') {
     return {
-      message: res.message || 'Remote spending was stopped for this terminal — reconnect from the portal, then retry.',
+      message: res.message || '此终端已被停止远程消费——请从门户重新连接后重试。',
       ok: false
     }
   }
 
   if (res.error === 'rate_limited') {
-    return { message: 'Too many attempts — wait a moment, then try again.', ok: false }
+    return { message: '尝试次数过多——请稍等片刻再试。', ok: false }
   }
 
   return {
     message:
       res.message ||
-      'Remote Spending was not allowed — someone with billing permissions (owner, admin, or finance admin) must approve it. You can also make this change on the portal.',
+      '远程消费未被允许——需要拥有计费权限的人（所有者、管理员或财务管理员）批准。你也可以到门户里修改。',
     ok: false
   }
 }
@@ -196,7 +196,7 @@ function stepUpDenialResult(res: { error?: string; message?: string }): Subscrip
 // CLI's allow_stepup=False cap).
 const scopeStillDeniedResult: SubscriptionResult = {
   message:
-    'Remote Spending still isn’t active for this terminal — the authorization didn’t take. Retry, or make this change on the portal.',
+    '此终端的远程消费仍未生效——授权没有成功。请重试，或到门户里修改。',
   ok: false
 }
 
@@ -209,7 +209,7 @@ function previewAndRoute(
 ): Promise<void> {
   return ctx.preview(tierId).then(p => {
     if (!p) {
-      return onPatch({ result: { message: 'Could not preview that change.', ok: false }, screen: 'result' })
+      return onPatch({ result: { message: '无法预览该变更。', ok: false }, screen: 'result' })
     }
 
     if (!p.ok) {
@@ -268,7 +268,7 @@ function applyPendingAndRoute(
           : finish(
               mutationResult(
                 r,
-                'Scheduled — your plan stays active until the end of the billing period, then it cancels. Nothing changes today.'
+                '已安排——套餐会保持有效到本计费周期结束，然后取消。今天不会有任何变化。'
               )
             )
       )
@@ -288,7 +288,7 @@ function applyPendingAndRoute(
         : finish(
             mutationResult(
               r,
-              'Scheduled — your plan doesn’t change today. You keep your current plan until the end of the billing period, then it switches.'
+              '已安排——今天套餐不变。你会保留当前套餐到本计费周期结束，然后自动切换。'
             )
           )
     )
@@ -308,7 +308,7 @@ function resumeAndRoute(
     }
 
     return onPatch({
-      result: mutationResult(r, 'Your pending change was undone — you stay on your current plan.'),
+      result: mutationResult(r, '待处理的变更已撤销——你仍使用当前套餐。'),
       screen: 'result'
     })
   })
@@ -385,7 +385,7 @@ function OverviewScreen({ onClose, onPatch, overlay, t }: ScreenProps) {
   const busyRef = useRef(false)
 
   const u = s.usage
-  const freeNudge = isFree ? 'Paid models need a subscription. Start one to reach them.' : null
+  const freeNudge = isFree ? '付费模型需要订阅。开通后即可使用。' : null
 
   const lowNudge =
     u?.status === 'low'
@@ -422,7 +422,7 @@ function OverviewScreen({ onClose, onPatch, overlay, t }: ScreenProps) {
     } else {
       rows.push({ label: 'Change plan', run: () => onPatch({ pending: null, screen: 'picker' }) })
       rows.push({
-        label: 'Cancel subscription',
+        label: '取消订阅',
         run: () => onPatch({ pending: { kind: 'cancellation', preview: null, targetTierId: null }, screen: 'confirm' })
       })
     }
@@ -450,7 +450,7 @@ function OverviewScreen({ onClose, onPatch, overlay, t }: ScreenProps) {
   // The inline plan rows are the subscribe path; only a catalog-less free state
   // still needs the generic portal row.
   if (!isFree || freePlans.length === 0) {
-    rows.push({ label: isFree ? 'Start a subscription' : 'Manage on portal', run: doManage })
+    rows.push({ label: isFree ? '开通订阅' : 'Manage on portal', run: doManage })
   }
 
   rows.push({ label: 'Close', run: onClose })
@@ -644,11 +644,11 @@ function ConfirmScreen({ onClose, onPatch, overlay, t }: ScreenProps) {
   let primary: MenuRowSpec | null = null
 
   if (isCancellation) {
-    primary = { color: t.color.warn, label: 'Cancel subscription', run: apply }
+    primary = { color: t.color.warn, label: '取消订阅', run: apply }
   } else if (effect === 'charge_now') {
     primary = {
       color: t.color.ok,
-      label: amount ? `Pay ${amount} & upgrade now` : 'Upgrade now (prorated charge)',
+      label: amount ? `Pay ${amount} & upgrade now` : '立即升级（按比例计费）',
       run: apply
     }
   } else if (effect === 'scheduled') {
@@ -672,7 +672,7 @@ function ConfirmScreen({ onClose, onPatch, overlay, t }: ScreenProps) {
     <Box flexDirection="column">
       <Box>
         <Text bold color={t.color.accent}>
-          {isCancellation ? 'Confirm cancellation' : 'Confirm plan change'}
+          {isCancellation ? '确认取消' : '确认套餐变更'}
         </Text>
         {chip && <Text color={chip.color}> · {chip.label}</Text>}
       </Box>
@@ -694,7 +694,7 @@ function ConfirmScreen({ onClose, onPatch, overlay, t }: ScreenProps) {
         <>
           <Text color={t.color.text}>
             Upgrade to {targetName}.{' '}
-            {amount ? `You will be charged ${amount} now (prorated).` : 'You will be charged the prorated amount now.'}
+            {amount ? `You will be charged ${amount} now (prorated).` : '现在将按比例向你收费。'}
           </Text>
           {preview?.monthly_credits_delta && (
             <Text color={t.color.muted}>Monthly credits change: {preview.monthly_credits_delta}.</Text>
@@ -702,7 +702,7 @@ function ConfirmScreen({ onClose, onPatch, overlay, t }: ScreenProps) {
           <Text color={t.color.muted}>
             {chargeCard
               ? `${chargeCard} — the card on your subscription — will be charged.`
-              : 'The card on your subscription will be charged.'}
+              : '将向你订阅绑定的银行卡收费。'}
           </Text>
         </>
       )}
@@ -725,7 +725,7 @@ function ConfirmScreen({ onClose, onPatch, overlay, t }: ScreenProps) {
 
       {effect === 'blocked' && !isCancellation && (
         <Text color={t.color.warn}>
-          {preview?.reason ?? 'That change cannot be made here — manage it on the portal.'}
+          {preview?.reason ?? '该变更无法在这里进行——请到门户里管理。'}
         </Text>
       )}
 
@@ -809,7 +809,7 @@ function ResultScreen({ onClose, overlay, t }: Omit<ScreenProps, 'onPatch'>) {
   const timedOut = result?.ok && applyState === 'timed_out'
 
   const message = timedOut
-    ? 'Your upgrade succeeded and is still applying — refresh in a moment.'
+    ? '升级已成功，仍在生效中——请稍后刷新。'
     : (result?.message ?? '')
 
   const openRecovery = () => {
@@ -822,7 +822,7 @@ function ResultScreen({ onClose, overlay, t }: Omit<ScreenProps, 'onPatch'>) {
 
   const rows: MenuRowSpec[] = recoveryUrl
     ? [
-        { color: t.color.accent, label: 'Open the portal to finish', run: openRecovery },
+        { color: t.color.accent, label: '打开门户完成', run: openRecovery },
         { label: 'Close', run: onClose }
       ]
     : [{ label: 'Close', run: onClose }]
@@ -832,7 +832,7 @@ function ResultScreen({ onClose, overlay, t }: Omit<ScreenProps, 'onPatch'>) {
   return (
     <Box flexDirection="column">
       <Text bold color={result?.ok ? t.color.ok : t.color.warn}>
-        {applying ? 'Applying…' : timedOut ? 'Still applying' : result?.ok ? 'Done' : 'Could not complete'}
+        {applying ? '正在应用…' : timedOut ? '仍在应用' : result?.ok ? 'Done' : '无法完成'}
       </Text>
       <Text color={t.color.text}>{message}</Text>
       {result?.ok && !applying && !timedOut && (
@@ -933,12 +933,12 @@ function StepUpScreen({ onPatch, overlay, t }: ScreenProps) {
   const rows: MenuRowSpec[] =
     phase === 'granted'
       ? [
-          { color: t.color.ok, label: retry?.kind === 'apply' ? 'Continue the change' : 'Continue', run: resume },
+          { color: t.color.ok, label: retry?.kind === 'apply' ? '继续变更' : 'Continue', run: resume },
           { label: 'Cancel', run: back }
         ]
       : phase === 'prompt'
         ? [
-            { color: t.color.ok, label: 'Allow Remote Spending', run: enable },
+            { color: t.color.ok, label: '允许远程消费', run: enable },
             { label: 'Cancel', run: back }
           ]
         : []
@@ -974,7 +974,7 @@ function StepUpScreen({ onPatch, overlay, t }: ScreenProps) {
       <Text />
       {footer(
         phase === 'waiting'
-          ? 'Waiting for approval… · Esc to cancel'
+          ? '等待批准… · Esc 取消'
           : phase === 'resuming'
             ? 'Working…'
             : '↑/↓ select · Enter · Esc back',

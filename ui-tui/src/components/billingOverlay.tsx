@@ -90,9 +90,9 @@ function OverviewScreen({ ctx, onClose, onPatch, s, t }: ScreenProps) {
   const full = s.is_admin && s.cli_billing_enabled
 
   const note = !s.is_admin
-    ? 'Billing actions need someone with billing permissions (owner, admin, or finance admin).'
+    ? '计费操作需要拥有计费权限的人（所有者、管理员或财务管理员）。'
     : !s.cli_billing_enabled
-      ? "Remote spending is off for this org — a billing admin can turn it on from the portal's Hermes Agent page."
+      ? "该组织的远程消费已关闭——计费管理员可在门户的 Hermes Agent 页面开启。"
       : null
 
   // Always show the full billing menu for an admin/billing-on org — a missing
@@ -101,8 +101,8 @@ function OverviewScreen({ ctx, onClose, onPatch, s, t }: ScreenProps) {
   // on file, "Add funds" opens the guided add-card path (portal + check-again)
   // instead of an amount picker that would 403 no_payment_method.
   const items = full
-    ? ['Add funds', 'Auto-reload', 'Monthly limit', 'Manage on portal', 'Cancel']
-    : ['Manage on portal', 'Cancel']
+    ? ['充值', '自动续充', '每月限额', '到门户管理', '取消']
+    : ['到门户管理', '取消']
 
   const choose = (i: number) => {
     if (full) {
@@ -159,7 +159,7 @@ function OverviewScreen({ ctx, onClose, onPatch, s, t }: ScreenProps) {
         <Text color={t.color.muted}>
           {s.card
             ? `Card: ${s.card.display ?? s.card.masked}`
-            : 'No saved card on file — “Add funds” walks you through adding one.'}
+            : '没有已保存的银行卡——「充值」会引导你添加一张。'}
         </Text>
       )}
       {note && (
@@ -192,7 +192,7 @@ function BuyScreen({ ctx, onPatch, s, t }: ScreenProps) {
   const noCard = !s.card
 
   const rows = noCard
-    ? ['Add a card on the portal', 'I’ve added it — check again', 'Back']
+    ? ['到门户添加银行卡', '已添加——再检查一次', '返回']
     : [...presets, 'Custom amount…', 'Cancel']
 
   const customIdx = presets.length
@@ -217,7 +217,7 @@ function BuyScreen({ ctx, onPatch, s, t }: ScreenProps) {
       setChecking(false)
 
       if (!fresh) {
-        return setError('Could not refresh billing state — try again in a moment.')
+        return setError('无法刷新计费状态——请稍后再试。')
       }
 
       setError(null)
@@ -228,7 +228,7 @@ function BuyScreen({ ctx, onPatch, s, t }: ScreenProps) {
       if (fresh.card) {
         ctx.sys(`✓ Card found: ${fresh.card.display ?? fresh.card.masked} — pick an amount.`)
       } else {
-        ctx.sys('Still no card on file — finish adding it on the portal, then check again.')
+        ctx.sys('仍然没有银行卡——请先在门户里加好，然后再检查一次。')
       }
     })
   }
@@ -271,9 +271,9 @@ function BuyScreen({ ctx, onPatch, s, t }: ScreenProps) {
       if (i === 0) {
         if (s.portal_url) {
           ctx.openPortal(s.portal_url)
-          ctx.sys('Add a card on the billing page, then come back and pick “check again”.')
+          ctx.sys('请先在计费页面添加银行卡，然后回来点「再检查一次」。')
         } else {
-          setError('Could not build the portal link — is your portal configured?')
+          setError('无法生成门户链接——你的门户配置好了吗？')
         }
 
         return
@@ -327,7 +327,7 @@ function BuyScreen({ ctx, onPatch, s, t }: ScreenProps) {
   // sel can go stale when a refresh flips the row set (3 add-card rows ↔ N
   // preset rows) — clamp for render + Enter.
   const cSel = Math.min(sel, rows.length - 1)
-  const payLine = s.card ? `Payment: ${s.card.display ?? s.card.masked}` : 'No saved card on file'
+  const payLine = s.card ? `Payment: ${s.card.display ?? s.card.masked}` : '没有已保存的银行卡'
 
   if (typing) {
     return (
@@ -344,7 +344,7 @@ function BuyScreen({ ctx, onPatch, s, t }: ScreenProps) {
         </Box>
         {error && <Text color={t.color.error}>{error}</Text>}
         <Text />
-        {footer('Enter confirm · Esc back', t)}
+        {footer('回车确认 · Esc 返回', t)}
       </Box>
     )
   }
@@ -366,7 +366,7 @@ function BuyScreen({ ctx, onPatch, s, t }: ScreenProps) {
         {error && <Text color={t.color.error}>{error}</Text>}
         <Text />
         {footer(
-          checking ? 'Checking for a card…' : `↑/↓ select · 1-${rows.length} quick pick · Enter confirm · Esc back`,
+          checking ? '正在检查银行卡…' : `↑/↓ select · 1-${rows.length} quick pick · Enter confirm · Esc back`,
           t
         )}
       </Box>
@@ -471,7 +471,7 @@ function ConfirmScreen({
     }
   })
 
-  const payLine = s.card ? `Payment: ${s.card.display ?? s.card.masked}` : 'No saved card on file'
+  const payLine = s.card ? `Payment: ${s.card.display ?? s.card.masked}` : '没有已保存的银行卡'
 
   return (
     <Box flexDirection="column">
@@ -526,7 +526,7 @@ function StepUpScreen({
     }
 
     setPhase('waiting')
-    ctx.sys('Opening your browser to allow Remote Spending…')
+    ctx.sys('正在打开浏览器以允许远程消费…')
 
     void ctx.requestRemoteSpending().then(granted => {
       if (!granted) {
@@ -563,7 +563,7 @@ function StepUpScreen({
   }
 
   const decline = () => {
-    ctx.sys('No charge made. Run /topup when you want to allow Remote Spending.')
+    ctx.sys('未产生任何扣费。想允许远程消费时运行 /topup。')
     onClose()
   }
 
@@ -643,7 +643,7 @@ function StepUpScreen({
         <Text />
         <ActionRow active color={t.color.ok} label="Press Enter to resume" t={t} />
         <Text />
-        {footer('Enter resume · Esc cancel', t)}
+        {footer('回车继续 · Esc 取消', t)}
       </Box>
     )
   }
@@ -692,7 +692,7 @@ function AutoReloadScreen({ ctx, onClose, onPatch, s, t }: ScreenProps) {
       'a different card'
     : null
 
-  const manageCardLabel = 'Use your card on file — manage on portal'
+  const manageCardLabel = '使用已保存的银行卡——到门户管理'
 
   // Prefill from state (strip the $ from the *_usd raw fields if present).
   const prefill = (raw?: null | string) => (raw == null ? '' : String(raw).replace(/^\$/, '').trim())
@@ -704,11 +704,11 @@ function AutoReloadScreen({ ctx, onClose, onPatch, s, t }: ScreenProps) {
   const manageCardRows = distinctCard && s.portal_url ? [manageCardLabel] : []
 
   const actionRows = enabled
-    ? ['Agree and turn on', 'Turn off', ...manageCardRows, 'Cancel']
-    : ['Agree and turn on', ...manageCardRows, 'Cancel']
+    ? ['同意并开启', '关闭', ...manageCardRows, '取消']
+    : ['同意并开启', ...manageCardRows, '取消']
 
   const actionColors: Record<string, string> = {
-    'Agree and turn on': t.color.ok,
+    '同意并开启': t.color.ok,
     'Turn off': t.color.warn,
     [manageCardLabel]: t.color.accent
   }
@@ -788,7 +788,7 @@ function AutoReloadScreen({ ctx, onClose, onPatch, s, t }: ScreenProps) {
   }
 
   const onAction = (label: string) => {
-    if (label === 'Agree and turn on') {
+    if (label === '同意并开启') {
       turnOn()
     } else if (label === 'Turn off') {
       turnOff()
@@ -843,7 +843,7 @@ function AutoReloadScreen({ ctx, onClose, onPatch, s, t }: ScreenProps) {
     }
   })
 
-  const cardLine = s.card ? `Card on file: ${s.card.masked}` : 'No saved card on file'
+  const cardLine = s.card ? `Card on file: ${s.card.masked}` : '没有已保存的银行卡'
   const chargeCardName = distinctCardName ?? (s.card ? s.card.masked : 'your card')
 
   const fieldBox = (label: string, value: string, onChange: (v: string) => void, focused: boolean, key: string) => (
@@ -883,8 +883,8 @@ function AutoReloadScreen({ ctx, onClose, onPatch, s, t }: ScreenProps) {
         <Text color={t.color.warn}>⚠ Auto-refill is charging {distinctCardName} — not your card on file.</Text>
       )}
       <Text />
-      {fieldBox('When balance falls below:', threshold, setThreshold, row === 0, 'threshold')}
-      {fieldBox('Reload balance to:', reloadTo, setReloadTo, row === 1, 'reloadTo')}
+      {fieldBox('当余额低于:', threshold, setThreshold, row === 0, 'threshold')}
+      {fieldBox('充值到:', reloadTo, setReloadTo, row === 1, 'reloadTo')}
       <Text />
       <Text color={t.color.muted}>
         By confirming, you authorize Nous Research to charge {chargeCardName} whenever your balance falls below the
@@ -910,7 +910,7 @@ function AutoReloadScreen({ ctx, onClose, onPatch, s, t }: ScreenProps) {
 // ── Screen 5: Monthly spend limit (read-only) ─────────────────────────
 
 function LimitScreen({ ctx, onClose, onPatch, s, t }: ScreenProps) {
-  const labels = ['Manage on portal', 'Cancel']
+  const labels = ['到门户管理', '取消']
 
   const choose = (i: number) => {
     if (i === 0 && s.portal_url) {
@@ -930,7 +930,7 @@ function LimitScreen({ ctx, onClose, onPatch, s, t }: ScreenProps) {
   const usageLine =
     cap && cap.limit_usd != null
       ? `${cap.spent_display} of ${cap.limit_display} used this month${cap.is_default_ceiling ? ' (default ceiling)' : ''}`
-      : 'No monthly cap visible (managed on the portal).'
+      : '看不到每月上限（在门户里管理）。'
 
   return (
     <Box flexDirection="column">

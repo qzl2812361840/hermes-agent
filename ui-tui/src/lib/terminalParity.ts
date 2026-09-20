@@ -52,7 +52,7 @@ export async function terminalParityHints(
       key: 'apple-terminal',
       tone: 'warn',
       message:
-        'Apple Terminal detected · use /paste for image-only clipboard fallback, and try Ctrl+A / Ctrl+E / Ctrl+U if Cmd+←/→/⌫ gets rewritten'
+        '检测到 Apple Terminal · 纯图片剪贴板请用 /paste 兜底；若 Cmd+←/→/⌫ 被改写，试试 Ctrl+A / Ctrl+E / Ctrl+U'
     })
   }
 

@@ -25,8 +25,8 @@ export async function sendAgentSteer(gw: GatewayClient, sid: string, id: string,
   return {
     accepted,
     message: accepted
-      ? 'Queued for child — applied at the next tool boundary.'
-      : 'Not queued: child has finished or is no longer accepting guidance.'
+      ? '已排队给子代理——将在下一个工具边界应用。'
+      : '未入队：子代理已结束或不再接受指导。'
   }
 }
 
@@ -99,7 +99,7 @@ export function AgentSteerForm({
 }
 
 export function AgentLiveTail({ gw, sid, id, t }: ControlProps) {
-  const [tail, setTail] = useState('Loading live transcript…')
+  const [tail, setTail] = useState('正在加载实时记录…')
   useEffect(() => {
     let active = true
     let pending = false
@@ -120,12 +120,12 @@ export function AgentLiveTail({ gw, sid, id, t }: ControlProps) {
           setTail(
             result?.available
               ? `${result.truncated ? '[last 16 KiB]\n' : ''}${result.text}`
-              : 'Live transcript unavailable; child may have finished. Progress and output remain below.'
+              : '实时记录不可用；子代理可能已结束。进度和输出仍在下方。'
           )
         }
       } catch {
         if (active) {
-          setTail('Could not refresh live transcript.')
+          setTail('无法刷新实时记录。')
         }
       } finally {
         pending = false

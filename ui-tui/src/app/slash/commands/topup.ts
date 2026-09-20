@@ -39,7 +39,7 @@ const renderBillingError = (
       // Reached by non-charge mutations (e.g. auto-reload config) that need
       // Remote Spending allowed. The resumable step-up lives on the buy/charge
       // path; point the user there rather than leaking the raw scope name.
-      sys('This needs Remote Spending allowed. Start a top-up to allow it, then retry.')
+      sys('需要先允许远程消费。先发起一次充值来授权，然后重试。')
 
       break
     case 'remote_spending_revoked': {
@@ -49,8 +49,8 @@ const renderBillingError = (
 
       const who =
         env.actor === 'admin'
-          ? 'An admin stopped remote spending for this terminal.'
-          : 'You stopped remote spending for this terminal.'
+          ? '管理员已停止此终端的远程消费。'
+          : '你已停止此终端的远程消费。'
 
       sys(`${who} Reconnect to restore — run /portal to re-authorize this terminal.`)
 
@@ -60,7 +60,7 @@ const renderBillingError = (
     case 'session_revoked':
       // Stronger than a spend-revoke: the whole session is gone → full re-login.
       patchOverlayState({ billing: null })
-      sys('Your session was logged out. Run /portal to log in again.')
+      sys('登录已失效。请运行 /portal 重新登录。')
 
       return
 
@@ -70,25 +70,25 @@ const renderBillingError = (
       // Account-wide switch is OFF (dual-emitted error/code). A billing admin can
       // turn it on from the portal's Hermes Agent page; this is NOT a per-terminal stop.
       sys(
-        "Remote spending is off for this account — a billing admin can turn it on from the portal's Hermes Agent page."
+        "该账号的远程消费已关闭——计费管理员可在门户的 Hermes Agent 页面开启。"
       )
 
       break
 
     case 'role_required':
       sys(
-        'Adding funds needs someone with billing permissions (owner, admin, or finance admin), or manage this on the portal.'
+        '充值需要拥有计费权限的人（所有者、管理员或财务管理员），或者到门户里操作。'
       )
 
       break
 
     case 'consent_required':
-      sys('This action needs a one-time card confirmation and consent step on the portal before it can proceed.')
+      sys('此操作需要先在门户完成一次银行卡确认和授权，才能继续。')
 
       break
 
     case 'org_access_denied':
-      sys("This token isn't bound to an org you can manage. Sign in with the right org, or manage this on the portal.")
+      sys("该令牌没有绑定你可管理的组织。请用正确的组织登录，或到门户里操作。")
 
       break
 
@@ -146,7 +146,7 @@ const renderBillingError = (
     }
 
     default:
-      sys(`🔴 ${env.message || env.error || 'Billing request failed.'}`)
+      sys(`🔴 ${env.message || env.error || '计费请求失败。'}`)
   }
 
   if (portal) {
@@ -212,7 +212,7 @@ const pollCharge = (sys: Sys, ctx: SlashRunCtx, chargeId: string, portalUrl?: st
       case 'timed_out':
         sys(
           '🟡 Still processing after 5 minutes — this is a timeout, not a failure. ' +
-            'Check /topup or the portal shortly.'
+            '稍后查看 /topup 或门户。'
         )
 
         if (portalUrl) {
@@ -289,13 +289,13 @@ const validateAmount = (raw: string, s: BillingStateResponse): { amount?: string
   const cleaned = raw.trim().replace(/^\$/, '').trim()
 
   if (!cleaned || !/^\d+(\.\d{1,2})?$/.test(cleaned)) {
-    return { error: 'Enter a dollar amount, e.g. 100 (max 2 decimal places).' }
+    return { error: '请输入金额，例如 100（最多两位小数）。' }
   }
 
   const value = Number(cleaned)
 
   if (!(value > 0)) {
-    return { error: 'Amount must be greater than $0.' }
+    return { error: '金额必须大于 $0。' }
   }
 
   if (s.min_usd != null && value < Number(s.min_usd)) {

@@ -27,7 +27,7 @@ type ProviderRow = { name: string; provider: ModelOptionProvider }
 export const REASONING_PICKER_ROWS: ReadonlyArray<{ label: string; value: string }> = [
   ...REASONING_EFFORTS.map(level => ({ label: level, value: level })),
   { label: 'none (disable reasoning)', value: 'none' },
-  { label: 'Keep current effort', value: '' }
+  { label: '保持当前档位', value: '' }
 ]
 
 /** False only when the catalog says the picked model has no reasoning control;
@@ -816,7 +816,7 @@ export function ModelPicker({
         {allowPersistGlobal ? ' · ^g toggle' : ' only'}
       </Text>
       <OverlayHint t={t}>
-        {models.length ? '↑/↓ select · Enter next · Esc clear/back · q close' : 'Esc back · q close'}
+        {models.length ? '↑/↓ 选择 · 回车 下一步 · Esc 清除/返回 · q 关闭' : 'Esc back · q close'}
       </OverlayHint>
     </Box>
   )

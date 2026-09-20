@@ -57,34 +57,34 @@ const ART_BY_CODE: readonly [codes: readonly number[], art: Art][] = [
 const artFor = (code: number): Art => ART_BY_CODE.find(([codes]) => codes.includes(code))?.[1] ?? 'cloud'
 
 const CONDITION_BY_CODE: Readonly<Record<number, string>> = {
-  0: 'Clear sky',
-  1: 'Mainly clear',
-  2: 'Partly cloudy',
-  3: 'Overcast',
-  45: 'Fog',
+  0: '晴',
+  1: '晴间多云',
+  2: '局部多云',
+  3: '阴',
+  45: '雾',
   48: 'Rime fog',
-  51: 'Light drizzle',
+  51: '小毛毛雨',
   53: 'Drizzle',
   55: 'Heavy drizzle',
-  56: 'Light freezing drizzle',
+  56: '小冻毛毛雨',
   57: 'Freezing drizzle',
   61: 'Light rain',
   63: 'Rain',
-  65: 'Heavy rain',
-  66: 'Light freezing rain',
+  65: '大雨',
+  66: '小冻雨',
   67: 'Freezing rain',
   71: 'Light snow',
   73: 'Snow',
   75: 'Heavy snow',
-  77: 'Snow grains',
+  77: '米雪',
   80: 'Light rain showers',
   81: 'Rain showers',
   82: 'Heavy rain showers',
   85: 'Light snow showers',
-  86: 'Heavy snow showers',
-  95: 'Thunderstorm',
-  96: 'Thunderstorm with hail',
-  99: 'Severe thunderstorm with hail'
+  86: '强阵雪',
+  95: '雷阵雨',
+  96: '雷阵雨伴冰雹',
+  99: '强雷阵雨伴冰雹'
 }
 
 const ART: Record<Art, readonly string[]> = {
@@ -217,7 +217,7 @@ async function fetchReport(location: string): Promise<Report> {
 
   return {
     area: place.area,
-    condition: CONDITION_BY_CODE[weatherCode] ?? 'Unknown conditions',
+    condition: CONDITION_BY_CODE[weatherCode] ?? '未知天气',
     feelsC: String(now.apparent_temperature ?? '?'),
     humidity: String(now.relative_humidity_2m ?? '?'),
     tempC: String(now.temperature_2m ?? '?'),

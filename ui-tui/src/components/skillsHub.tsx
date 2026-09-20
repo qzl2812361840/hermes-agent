@@ -263,7 +263,7 @@ export function SkillsHub({ gw, maxWidth, onClose, t }: SkillsHubProps) {
           <Text color={t.color.muted}> ↓ {skills.length - offset - VISIBLE} more</Text>
         )}
         <OverlayHint t={t}>
-          {skills.length ? '↑/↓ select · Enter open · 1-9,0 quick · Esc back · q close' : 'Esc back · q close'}
+          {skills.length ? '↑/↓ 选择 · 回车 打开 · 1-9,0 快捷 · Esc 返回 · q 关闭' : 'Esc 返回 · q 关闭'}
         </OverlayHint>
       </Box>
     )

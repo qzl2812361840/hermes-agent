@@ -995,7 +995,7 @@ export function AgentsOverlay({ gw, initialHistoryIndex = 0, onClose, t }: Agent
 
         {mode === 'list' ? (
           <Text color={t.color.muted} wrap="truncate-end">
-            ↑↓/jk move · g/G top/bottom · {replayMode ? 'Enter/→ detail' : 'Enter tail · d/→ detail'}
+            ↑↓/jk move · g/G top/bottom · {replayMode ? '回车/→ 详情' : '回车 尾部 · d/→ 详情'}
             {controlsHint} · s sort:{SORT_LABEL[sort]} · f filter:
             {FILTER_LABEL[filter]}
             {history.length > 0 ? ` · [ / ] history ${historyIndex}/${history.length}` : ''}

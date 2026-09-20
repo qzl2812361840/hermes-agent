@@ -458,7 +458,7 @@ export async function configureDetectedTerminalKeybindings(options?: {
   if (!detected) {
     return {
       success: false,
-      message: 'No supported IDE terminal detected. Supported: VS Code, Cursor, Windsurf.'
+      message: '未检测到受支持的 IDE 终端。支持：VS Code、Cursor、Windsurf。'
     }
   }
 

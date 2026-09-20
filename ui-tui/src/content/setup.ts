@@ -4,7 +4,7 @@ export const SETUP_REQUIRED_TITLE = 'Setup Required'
 
 export const buildSetupRequiredSections = (): PanelSection[] => [
   {
-    text: 'Hermes needs a model provider before the TUI can start a session.'
+    text: 'TUI 开始会话前，Hermes 需要先配置一个模型提供方。'
   },
   {
     rows: [
@@ -15,6 +15,6 @@ export const buildSetupRequiredSections = (): PanelSection[] => [
     title: 'Actions'
   },
   {
-    text: 'In the dashboard the Models page sets the profile default; on Desktop it is Settings -> Models.'
+    text: '在网页控制台用「模型」页面设置档案默认值；桌面版则在「设置 -> 模型」里。'
   }
 ]

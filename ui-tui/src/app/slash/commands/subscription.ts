@@ -72,7 +72,7 @@ const buildSubscriptionCtx = (
     const url = buildManageUrl(initialState, tierId)
 
     if (!url) {
-      sys('Could not build manage URL — is your portal configured?')
+      sys('无法生成管理链接——你的门户配置好了吗？')
 
       return Promise.resolve(false)
     }
@@ -80,18 +80,18 @@ const buildSubscriptionCtx = (
     const opened = openExternalUrl(url)
 
     if (opened) {
-      sys('Opening your subscription page in the browser — finish there, then re-run /subscription.')
+      sys('正在浏览器中打开订阅页面——在那里完成后，再运行一次 /subscription。')
     } else {
-      sys('Could not open browser — visit your subscription page manually at ' + url)
+      sys('无法打开浏览器——请手动访问你的订阅页面：' + url)
     }
 
     return Promise.resolve(opened)
   },
   openPortal: (url: string) => {
     if (openExternalUrl(url)) {
-      sys('Opening the portal in your browser — finish there, then re-run /subscription.')
+      sys('正在浏览器中打开门户——在那里完成后，再运行一次 /subscription。')
     } else {
-      sys('Could not open browser — visit ' + url + ' to finish.')
+      sys('无法打开浏览器——请访问 ' + url + ' 完成操作。')
     }
   },
   preview: tierId =>
@@ -112,7 +112,7 @@ const buildSubscriptionCtx = (
       .then(r => ({ error: r?.error, granted: !!(r && r.ok && r.granted), message: r?.message }))
       .catch(() => ({
         granted: false,
-        message: 'Could not reach the billing service — check your connection, then retry.'
+        message: '无法连接计费服务——请检查网络后重试。'
       })),
   resume: () =>
     ctx.gateway
@@ -142,7 +142,7 @@ const buildSubscriptionCtx = (
 
 export const subscriptionCommands: SlashCommand[] = [
   {
-    help: 'View or change your Nous subscription plan',
+    help: '查看或更改你的 Nous 订阅套餐',
     name: 'subscription',
     aliases: ['upgrade'],
     // ZERO sub-commands: bare `/subscription` fetches state and opens the
@@ -156,7 +156,7 @@ export const subscriptionCommands: SlashCommand[] = [
         .then(
           ctx.guarded<SubscriptionStateResponse>(s => {
             if (!s.logged_in) {
-              sys('Not logged into Nous Portal — run /portal to log in, then /subscription.')
+              sys('未登录 Nous 门户——请运行 /portal 登录，然后 /subscription。')
 
               return
             }
