@@ -148,6 +148,64 @@ def _extract_core(text: str) -> tuple[dict[str, int], list[str]]:
     return freq, raw_ngrams
 
 
+# ── 中文分词增强（2026-09-20）──────────────────────────────────────────
+# 原版用 2..4 字滑窗 n-gram，英文没字形边界问题，但中文会产出"你把""我发"
+# 这类碎片当关键词（实测线索记忆的标签全是这玩意）。装了 jieba 就走真分词，
+# 没装/关掉（GANIU_THREADS_NO_JIEBA=1）就自动退回原来的 n-gram 路径。
+_ZH_STOPWORDS = {
+    "我们", "你们", "他们", "这个", "那个", "什么", "怎么", "可以", "现在", "已经",
+    "还是", "因为", "所以", "但是", "就是", "一个", "没有", "不是", "自己", "时候",
+    "东西", "这样", "那样", "这些", "那些", "然后", "如果", "应该", "主要", "以及",
+    "或者", "而且", "同时", "另外", "其实", "真的", "确实", "可能", "需要", "必须",
+    "一定", "非常", "特别", "有点", "一下", "一起", "一直", "马上", "立刻", "刚才",
+    "之前", "以后", "今天", "明天", "昨天", "让我", "给我", "帮我", "看到", "知道",
+    "觉得", "开始", "继续", "还有", "上面", "下面", "这里", "那里", "怎么样",
+}
+
+_jieba_mod = None
+
+
+def _jieba():
+    global _jieba_mod
+    if _jieba_mod is None:
+        import jieba  # noqa: PLC0415
+
+        try:
+            jieba.setLogLevel(60)
+        except Exception:
+            pass
+        _jieba_mod = jieba
+    return _jieba_mod
+
+
+def _jieba_keywords(text: str, max_keywords: int) -> List[str]:
+    import os as _os
+    import re as _re
+
+    if _os.environ.get("GANIU_THREADS_NO_JIEBA") == "1":
+        return []
+    if not _re.search(r"[\u4e00-\u9fff]", text or ""):
+        return []
+    try:
+        jb = _jieba()
+    except Exception:
+        return []
+    counts: dict[str, int] = {}
+    for token in jb.cut(str(text or "")):
+        t = token.strip()
+        if len(t) < 2:
+            continue
+        if _re.fullmatch(r"[a-zA-Z0-9_-]+", t):
+            if len(t) >= 3 and t.lower() not in STOP_WORDS:
+                counts[t] = counts.get(t, 0) + 1
+            continue
+        if _re.fullmatch(r"[\d.]+", t) or t in _ZH_STOPWORDS:
+            continue
+        counts[t] = counts.get(t, 0) + 1
+    ranked = sorted(counts.items(), key=lambda kv: (-kv[1], -len(kv[0])))
+    return [w for w, _n in ranked[:max_keywords]]
+
+
 def extract_keywords(text: str, max_keywords: int = 8) -> List[str]:
     """Rank tokens by ``freq * length_weight`` then length, return top-N.
 
@@ -156,6 +214,9 @@ def extract_keywords(text: str, max_keywords: int = 8) -> List[str]:
     exactly the two-char keywords ("业余") that hit real records more
     reliably than four-grams like "业余写什".
     """
+    tokenized = _jieba_keywords(text, max_keywords)
+    if tokenized:
+        return tokenized
     freq, _ = _extract_core(text)
     ranked = sorted(
         ((word, count * _length_weight(len(word)), count) for word, count in freq.items()),
