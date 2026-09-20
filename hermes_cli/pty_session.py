@@ -120,7 +120,12 @@ class PtySession:
                 self.detach(ws)
                 return False
         if force_redraw:
-            return await self.write(ws, TUI_FORCE_REDRAW)
+            # ganiu patch (2026-09-20): 这里原来是 write(ws, TUI_FORCE_REDRAW)，即往 PTY 发一个
+            # Ctrl+L (0x0C) 让 TUI 重绘。但 Ink 的按键解析把这个控制字符当成可打印字符，直接插进
+            # 输入行——而 0x0C 在终端里渲染出来就是一个 "l"。结果：浏览器每刷新/重连一次，下一条
+            # 消息前面就多一个 l（实测刷新 3 次 → lllPROBEABCD，与刷新次数一一对应）。
+            # 重连后的重绘由前端每次连接都会发的 RESIZE（TIOCSWINSZ）驱动，不需要这个字节。
+            return True
         return True
 
     def detach(self, ws) -> None:
