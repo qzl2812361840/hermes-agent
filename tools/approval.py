@@ -889,8 +889,9 @@ def _human_decision(spec: _GateSpec, *, command: str, description: str,
             if not decision["resolved"]:
                 # ganiu rule (2026-09-20): 超时后怎么办由用户在 App 高级设置里选。
                 # 默认 deny（失败关闭、最安全）；选了"超时自动通过"则放行。
+                # ganiu: 默认就是「超时通过」；只有显式选「超时拒绝」才失败关闭。
                 _ta = (os.environ.get("HERMES_APPROVAL_TIMEOUT_ACTION") or "").strip().lower()
-                if _ta in ("approve", "allow", "yes", "on", "true", "1"):
+                if _ta not in ("deny", "reject", "no", "off", "false", "0"):
                     logger.warning("ganiu: approval timed out → AUTO-APPROVED per user setting: %s", command)
                     result = grant("once")
                     result["auto_approved_on_timeout"] = True
@@ -941,7 +942,7 @@ def _human_decision(spec: _GateSpec, *, command: str, description: str,
     if choice == "timeout":
         # ganiu rule (2026-09-20): 先看用户的超时策略设置（App 高级设置）。
         _ta2 = (os.environ.get("HERMES_APPROVAL_TIMEOUT_ACTION") or "").strip().lower()
-        if _ta2 in ("approve", "allow", "yes", "on", "true", "1"):
+        if _ta2 not in ("deny", "reject", "no", "off", "false", "0"):
             logger.warning("ganiu: CLI approval timed out → AUTO-APPROVED per user setting.")
             result = grant("once")
             result["auto_approved_on_timeout"] = True
