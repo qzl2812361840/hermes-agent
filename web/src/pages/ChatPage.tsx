@@ -454,6 +454,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       ? `/chat?resume=${encodeURIComponent(target)}`
       : "/chat?new=1";
   }, [resumeParam, scopedProfile]);
+
+  // 「开始新会话」按钮已按要求从断连覆盖层移除（只保留「恢复此会话」）。
+  // 能力本身保留，供其它入口复用；这行只为满足 noUnusedLocals。
+  void startFreshPty;
   const channel = useMemo(
     () => generateChannelId(`${resumeParam ?? ""}\0${scopedProfile}`),
     [resumeParam, scopedProfile],
@@ -2070,22 +2074,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 >
                   恢复此会话
                 </Button>
-                <Button
-                  outlined
-                  onClick={startFreshPty}
-                  aria-label="开始新的聊天会话"
-                >
-                  开始新会话
-                </Button>
-                {endedReason === "exited" && (
-                  <Button
-                    outlined
-                    onClick={() => navigate("/logs")}
-                    aria-label="Open logs"
-                  >
-                    查看日志
-                  </Button>
-                )}
               </div>
             </div>
           )}

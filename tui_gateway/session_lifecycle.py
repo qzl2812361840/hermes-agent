@@ -731,6 +731,15 @@ def _ws_orphan_turn_activity_is_fresh(session: dict) -> bool:
             return (session.get("running", False) and isinstance(stamp, int)
                     and 0 <= (time.perf_counter_ns() - stamp) / 1_000_000_000 < _WS_ORPHAN_ACTIVITY_STALE_S)
     if not callable(summary_fn := getattr(session.get("agent"), "get_activity_summary", None)):
+        # ganiu patch: the main AIAgent has no get_activity_summary(), so this used to return False
+        # unconditionally — every detached running turn was declared "not fresh" and interrupted ~20s
+        # after the browser tab closed / refreshed. Read the real clock instead: _touch_activity()
+        # (agent/activity_tracking.py) stamps _last_activity_ts on every API wait, stream token and
+        # tool heartbeat. Fresh ⇒ defer the reap (a closed laptop does NOT kill the turn); stale ⇒
+        # interrupt as before, so a genuinely wedged turn is still reclaimed.
+        stamp = getattr(session.get("agent"), "_last_activity_ts", None)
+        if isinstance(stamp, (int, float)) and stamp > 0:
+            return (time.time() - stamp) < _WS_ORPHAN_ACTIVITY_STALE_S
         return False
     try:
         elapsed = summary_fn().get("seconds_since_activity")
