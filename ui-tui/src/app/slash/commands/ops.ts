@@ -188,7 +188,7 @@ export const opsCommands: SlashCommand[] = [
             }
 
             if (r.connected) {
-              ctx.transcript.sys('Browser connected to live Chromium-family browser via CDP')
+              ctx.transcript.sys('浏览器已通过 CDP 连接到正在运行的 Chromium 系浏览器')
               ctx.transcript.sys(`Endpoint: ${r.url || '(url unavailable)'}`)
               ctx.transcript.sys('next browser tool call will use this CDP endpoint')
             }
@@ -225,7 +225,7 @@ export const opsCommands: SlashCommand[] = [
                 return ctx.transcript.sys('no checkpoints found')
               }
 
-              ctx.transcript.panel('Rollback checkpoints', [
+              ctx.transcript.panel('回滚检查点', [
                 {
                   rows: checkpoints.map((c, idx) => [
                     `${idx + 1}. ${c.hash.slice(0, 10)}`,
@@ -366,7 +366,7 @@ export const opsCommands: SlashCommand[] = [
                 return [`${ts} · ${e.count}×`, `${label}\n  ${e.path}`]
               })
 
-              ctx.transcript.panel('Archived spawn trees', [{ rows }])
+              ctx.transcript.panel('已归档的子代理树', [{ rows }])
             })
           )
           .catch(ctx.guardedErr)

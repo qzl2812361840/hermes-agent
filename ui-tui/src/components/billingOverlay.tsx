@@ -641,7 +641,7 @@ function StepUpScreen({
         </Text>
         <Text color={t.color.text}>Your ${amount} top-up is ready to finish.</Text>
         <Text />
-        <ActionRow active color={t.color.ok} label="Press Enter to resume" t={t} />
+        <ActionRow active color={t.color.ok} label="按回车继续" t={t} />
         <Text />
         {footer('回车继续 · Esc 取消', t)}
       </Box>
@@ -672,7 +672,7 @@ function StepUpScreen({
         It opens your browser to authorize, then your ${amount} top-up picks up right here.
       </Text>
       <Text />
-      <ActionRow active={sel === 0} color={t.color.ok} label="Allow Remote Spending" t={t} />
+      <ActionRow active={sel === 0} color={t.color.ok} label="允许远程消费" t={t} />
       <ActionRow active={sel === 1} label="Not now" t={t} />
       <Text />
       {footer('↑/↓ select · Enter confirm · Y/N quick · Esc cancel', t)}

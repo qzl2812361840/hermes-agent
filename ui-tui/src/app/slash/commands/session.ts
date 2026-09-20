@@ -21,7 +21,7 @@ import { patchOverlayState } from '../../overlayStore.js'
 import { patchUiState } from '../../uiStore.js'
 import type { SlashCommand } from '../types.js'
 
-const USAGE_CTA = 'Run /subscription to change plan · /topup to add to your balance'
+const USAGE_CTA = '运行 /subscription 更换套餐 · /topup 充值'
 
 const TUI_SESSION_MODEL_RE = new RegExp(`(?:^|\\s)${TUI_SESSION_MODEL_FLAG}(?:\\s|$)`)
 const REASONING_SESSION_FLAGS = new Set(['--session'])
@@ -153,9 +153,9 @@ export const sessionCommands: SlashCommand[] = [
                     cancelLabel: 'Cancel',
                     confirmLabel: 'Switch anyway',
                     danger: true,
-                    detail: r.confirm_message || r.warning || 'This model has unusually high known pricing.',
+                    detail: r.confirm_message || r.warning || '这个模型已知定价异常高。',
                     onConfirm: () => switchModel(true),
-                    title: 'Expensive model selection'
+                    title: '高价模型选择'
                   }
                 })
 
@@ -358,7 +358,7 @@ export const sessionCommands: SlashCommand[] = [
           if (action === 'status') {
             const mode = r.enabled ? 'ON' : 'OFF'
             const tts = r.tts ? 'ON' : 'OFF'
-            ctx.transcript.sys('Voice Mode Status')
+            ctx.transcript.sys('语音模式状态')
             ctx.transcript.sys(`  Mode:       ${mode}`)
             ctx.transcript.sys(`  TTS:        ${tts}`)
             ctx.transcript.sys(`  Record key: ${recordKeyLabel}`)
@@ -402,7 +402,7 @@ export const sessionCommands: SlashCommand[] = [
             ctx.transcript.sys('  /voice tts  to toggle speech output')
             ctx.transcript.sys('  /voice off  to disable voice mode')
           } else {
-            ctx.transcript.sys('Voice mode disabled.')
+            ctx.transcript.sys('语音模式已关闭。')
           }
         })
       )

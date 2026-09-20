@@ -244,7 +244,7 @@ export default function ProfileBuilderPage() {
   const handleCreate = async () => {
     const n = name.trim();
     if (!PROFILE_NAME_RE.test(n)) {
-      showToast("Invalid profile name (lowercase, digits, - and _)", "error");
+      showToast("档案名不合法（小写字母、数字、- 和 _）", "error");
       setStep("identity");
       return;
     }
@@ -265,13 +265,13 @@ export default function ProfileBuilderPage() {
       const pending = (res.hub_installs ?? []).filter((h) => h.pid).length;
       showToast(
         pending
-          ? `Profile "${n}" created — ${pending} hub skill${pending === 1 ? "" : "s"} installing`
-          : `Profile "${n}" created`,
+          ? `档案 "${n}" 已创建 — 正在安装 ${pending} 个中心技能`
+          : `档案 "${n}" 已创建`,
         "success",
       );
       navigate("/profiles");
     } catch (e) {
-      showToast(`Create failed: ${errorMessage(e)}`, "error");
+      showToast(`创建失败: ${errorMessage(e)}`, "error");
     } finally {
       setCreating(false);
     }

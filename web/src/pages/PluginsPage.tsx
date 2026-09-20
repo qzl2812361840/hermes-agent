@@ -244,13 +244,13 @@ function MemoryProviderSetupHint({
               </p>
               {dep.install ? (
                 <SetupCommandBlock
-                  label={dep.name ? `Install ${dep.name}` : "安装依赖"}
+                  label={dep.name ? `安装 ${dep.name}` : "安装依赖"}
                   code={dep.install}
                 />
               ) : null}
               {dep.check ? (
                 <SetupCommandBlock
-                  label={dep.name ? `Verify ${dep.name}` : "验证依赖"}
+                  label={dep.name ? `验证 ${dep.name}` : "验证依赖"}
                   code={dep.check}
                 />
               ) : null}
@@ -519,7 +519,7 @@ export default function PluginsPage() {
       const failed = result.results.filter((row) => row.status === "failed");
       if (failed.length) {
         const names = Array.from(new Set(failed.map((row) => row.name))).join(", ");
-        showToast(`Provider setup failed: ${names || provider}. See setup results below.`, "error");
+        showToast(`提供方配置失败: ${names || provider}。请看下方的配置结果。`, "error");
       } else {
         showToast("提供商设置完成", "success");
       }
@@ -917,10 +917,10 @@ export default function PluginsPage() {
 
           <Input
             className="max-w-md"
-            placeholder={t.pluginsPage.catalogSearchPlaceholder ?? "Search catalog..."}
+            placeholder={t.pluginsPage.catalogSearchPlaceholder ?? "搜索目录..."}
             value={catalogSearch}
             onChange={(e) => setCatalogSearch(e.target.value)}
-            aria-label={t.pluginsPage.catalogSearchPlaceholder ?? "Search catalog..."}
+            aria-label={t.pluginsPage.catalogSearchPlaceholder ?? "搜索目录..."}
           />
 
           {catalogLoading ? (
@@ -930,14 +930,14 @@ export default function PluginsPage() {
             </div>
           ) : catalogEntries.length === 0 ? (
             <p className="text-xs text-text-tertiary">
-              {t.pluginsPage.catalogEmpty ?? "No catalog entries match."}{" "}
+              {t.pluginsPage.catalogEmpty ?? "没有匹配的目录条目。"}{" "}
               <a
                 className="underline"
                 href="https://hermes-agent.nousresearch.com/docs/plugins"
                 target="_blank"
                 rel="noreferrer"
               >
-                {t.pluginsPage.catalogEmptyDocsLink ?? "Learn about Hermes plugins"}
+                {t.pluginsPage.catalogEmptyDocsLink ?? "了解 Hermes 插件"}
               </a>
             </p>
           ) : (
@@ -1032,7 +1032,7 @@ export default function PluginsPage() {
         onConfirm={() => {
           if (catalogConfirm) void onCatalogInstall(catalogConfirm);
         }}
-        title={t.pluginsPage.catalogConfirmTitle ?? "Install this plugin?"}
+        title={t.pluginsPage.catalogConfirmTitle ?? "安装这个插件？"}
         description={
           catalogConfirm
             ? [
@@ -1041,7 +1041,7 @@ export default function PluginsPage() {
                   ? `${t.pluginsPage.catalogRequiresEnv ?? "Requires env"}: ${catalogConfirm.capabilities.requires_env.join(", ")}`
                   : "",
                 t.pluginsPage.catalogConfirmInstallNote ??
-                  "Plugins install disabled; enable it after install to activate.",
+                  "插件安装已禁用；安装后再启用即可生效。",
               ]
                 .filter(Boolean)
                 .join("\n\n")
@@ -1228,7 +1228,7 @@ function PluginRowCard(props: PluginRowCardProps) {
 
         {row.removed_reason ? (
           <p className="border border-destructive/50 px-3 py-2 text-xs text-destructive">
-            {t.pluginsPage.removedFromCatalog ?? "Removed from catalog"}: {row.removed_reason}
+            {t.pluginsPage.removedFromCatalog ?? "已从目录移除"}: {row.removed_reason}
           </p>
         ) : null}
 
@@ -1334,7 +1334,7 @@ function CatalogEntryCard(props: CatalogEntryCardProps) {
 
         {isRemoved ? (
           <p className="border border-destructive/50 px-3 py-2 text-xs text-destructive">
-            {t.pluginsPage.removedFromCatalog ?? "Removed from catalog"}
+            {t.pluginsPage.removedFromCatalog ?? "已从目录移除"}
             {removed.reason ? `: ${removed.reason}` : ""}
             {removed.date ? ` (${removed.date})` : ""}
           </p>

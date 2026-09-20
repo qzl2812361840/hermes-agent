@@ -664,7 +664,7 @@ export function createGatewayEventHandler(ctx: GatewayEventHandlerContext): (ev:
       // Startup queries are arbitrary launcher/script text (Omarchy prompted
       // launches, `hermes --tui -q "…"`) — submit LITERALLY, bypassing the
       // slash/!/interpolation dispatcher, matching one-shot's semantics.
-      submitLiteralRef.current(STARTUP_QUERY || 'What do you see in this image?')
+      submitLiteralRef.current(STARTUP_QUERY || '这张图里有什么？')
     }, 0)
   }
 

@@ -112,9 +112,9 @@ export default function WebhooksPage() {
         if (st.exit_code !== 0 && st.exit_code !== null) {
           setRestartMessage(null);
           setRestartNeeded(true);
-          setRestartError(`Gateway restart failed with exit ${st.exit_code}.`);
+          setRestartError(`网关重启失败，退出码 ${st.exit_code}。`);
           showToast(
-            `Gateway restart failed (exit ${st.exit_code}) — restart manually`,
+            `网关重启失败（退出码 ${st.exit_code}）— 请手动重启`,
             "error",
           );
         } else {
@@ -136,14 +136,14 @@ export default function WebhooksPage() {
       await api.restartGateway();
       setRestartNeeded(false);
       setRestartError(null);
-      setRestartMessage("Gateway restarting…");
-      showToast("Gateway restarting…", "success");
+      setRestartMessage("网关正在重启…");
+      showToast("网关正在重启…", "success");
       setTimeout(() => void loadWebhooks(), 4000);
       void watchRestartOutcome();
     } catch (e) {
       setRestartNeeded(true);
       setRestartError(errorMessage(e));
-      showToast(`Failed to restart: ${errorMessage(e)}`, "error");
+      showToast(`重启失败: ${errorMessage(e)}`, "error");
     } finally {
       setRestarting(false);
     }
@@ -157,19 +157,19 @@ export default function WebhooksPage() {
       const result = await api.enableWebhooks();
       await loadWebhooks();
       if (result.restart_started) {
-        setRestartMessage("Webhooks enabled; gateway restarting…");
-        showToast("Webhooks enabled; gateway restarting…", "success");
+        setRestartMessage("Webhook 已启用；网关正在重启…");
+        showToast("Webhook 已启用；网关正在重启…", "success");
         setTimeout(() => void loadWebhooks(), 4000);
         void watchRestartOutcome();
       } else {
         const detail = result.restart_error ? `: ${result.restart_error}` : ".";
         setRestartMessage(null);
         setRestartNeeded(true);
-        setRestartError(`Gateway restart failed${detail}`);
-        showToast(`Webhooks enabled; gateway restart failed${detail}`, "error");
+        setRestartError(`网关重启失败${detail}`);
+        showToast(`Webhook 已启用，但网关重启失败${detail}`, "error");
       }
     } catch (e) {
-      showToast(`Failed to enable webhooks: ${errorMessage(e)}`, "error");
+      showToast(`启用 Webhook 失败: ${errorMessage(e)}`, "error");
     } finally {
       setEnabling(false);
     }
@@ -208,7 +208,7 @@ export default function WebhooksPage() {
       resetForm();
       loadWebhooks();
     } catch (e) {
-      showToast(`Failed to create: ${errorMessage(e)}`, "error");
+      showToast(`创建失败: ${errorMessage(e)}`, "error");
     } finally {
       setCreating(false);
     }
@@ -504,7 +504,7 @@ export default function WebhooksPage() {
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
               <span>
                 {restartError ??
-                  "Webhooks are enabled, but the gateway still needs a restart before the receiver can come online."}
+                  "Webhook 已启用，但网关还需要重启一次，接收端才能上线。"}
               </span>
             </div>
             <Button

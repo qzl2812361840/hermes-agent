@@ -208,9 +208,9 @@ export const coreCommands: SlashCommand[] = [
           cancelLabel: 'No, keep going',
           confirmLabel: isNew ? 'Yes, start a new session' : 'Yes, clear the session',
           danger: true,
-          detail: 'This ends the current conversation and clears the transcript.',
+          detail: '这会结束当前对话并清空记录。',
           onConfirm: commit,
-          title: isNew ? 'Start a new session?' : 'Clear the current session?'
+          title: isNew ? '开始新会话？' : '清空当前会话？'
         }
       })
     }

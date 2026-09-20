@@ -222,7 +222,7 @@ export function useComposerState({ gw, submitRef, sys }: UseComposerStateOptions
       }
 
       if (!quiet) {
-        sys(r?.message || 'No image found in clipboard')
+        sys(r?.message || '剪贴板里没有图片')
       }
 
       return null

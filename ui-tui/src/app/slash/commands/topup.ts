@@ -389,7 +389,7 @@ const buildOverlayCtx = (ctx: SlashRunCtx, sys: Sys, s: BillingStateResponse): B
 
 export const topupCommands: SlashCommand[] = [
   {
-    help: 'Show your balance and manage billing — add funds, auto-reload, limits',
+    help: '查看余额并管理计费——充值、自动续充、限额',
     name: 'topup',
     // ZERO sub-commands (plan §0.4): any arg is ignored. Bare `/topup`
     // fetches state and opens the interactive overlay (CLI/TUI parity).
