@@ -1174,8 +1174,15 @@ def _build_uvicorn_server(host: str, port: int, *, ssh_isolated: bool = False):
     # notices the half-open tunnel (#101626). Its client count is tracked at the ASGI boundary so
     # the idle watchdog can retire the backend once nothing is connected.
     served_app = app
-    ping_interval, ping_timeout = (None, None) if _is_loopback else (
-        _ws_ping_setting("ws_ping_interval"), _ws_ping_setting("ws_ping_timeout"))
+    # 2026-09-23 嘎妞补丁：显式配置了 dashboard.ws_ping_* 就照配置走，绑定 127.0.0.1 也一样。
+    # 原因：我们的 dashboard 绑 loopback、前面挂 Caddy 对外（公网入口），uvicorn 看到的
+    # 对端永远是 127.0.0.1 → 走 loopback 分支 → 完全不发 WS ping → 空闲连接被中间层
+    # （Caddy / 运营商 NAT）在 60 秒左右静默回收，前端就表现为"每半分钟重连一次"。
+    _explicit_ws_ping = ("ws_ping_interval" in _dash_cfg) or ("ws_ping_timeout" in _dash_cfg)
+    ping_interval, ping_timeout = (
+        (None, None) if (_is_loopback and not _explicit_ws_ping) else (
+            _ws_ping_setting("ws_ping_interval"), _ws_ping_setting("ws_ping_timeout"))
+    )
     if ssh_isolated:
         from hermes_cli.web_server_idle_exit import (
             TUNNEL_WS_PING_INTERVAL_S, TUNNEL_WS_PING_TIMEOUT_S, IdleClientTracker, wrap_asgi_with_ws_tracking)

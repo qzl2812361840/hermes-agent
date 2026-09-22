@@ -438,6 +438,10 @@ async def pty_ws(ws: WebSocket) -> None:
     peer, mode, cred = gate
     await ws.accept()
     _log.info("pty accepted peer=%s mode=%s cred=%s", peer, mode, cred)
+    # 2026-09-23 嘎妞补丁：记下开始时间，断开时打一行「活了多久 + 关闭码」——
+    # 这样"前端每半分钟重连一次"下次发生就能直接看出是谁断的、断多快。
+    import time as _time
+    _t0 = _time.monotonic()
 
     # Native Windows can't import the POSIX PTY bridge: say so and close cleanly.
     if not _PTY_BRIDGE_AVAILABLE:
@@ -580,6 +584,14 @@ async def pty_ws(ws: WebSocket) -> None:
     finally:
         # Detach only — the PTY keeps running for a reattach; the registry
         # reaper closes it after the TTL (or immediately on process exit).
+        # 2026-09-23 嘎妞补丁：断开留痕（谁、活了多久、什么状态码），便于定位重连
+        try:
+            _log.info(
+                "pty closed peer=%s alive=%.1fs ws_state=%s app_state=%s",
+                peer, _time.monotonic() - _t0, ws.client_state, ws.application_state,
+            )
+        except Exception:
+            pass
         PTY_REGISTRY.detach(attach_token, ws)
 
 
