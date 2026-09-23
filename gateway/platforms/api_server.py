@@ -3954,7 +3954,8 @@ class APIServerAdapter(OpenAICompatRoutesMixin, BasePlatformAdapter):
         confirmed_runtime_lock: bool = False, bind_declared_conversation: bool = False,
         session_history_delivery: str = "", turn_author: Optional[Dict[str, Any]] = None,
         relay_metadata: Optional[Dict[str, Any]] = None, notification_category: str = "result",
-        resume_unanswered_turn: bool = False) -> tuple:
+        resume_unanswered_turn: bool = False,
+        approval_target_q=None) -> tuple:
         """Create an agent and run one turn in a thread executor -> ``(result, usage)``.
         ``agent_ref[0]`` receives the agent so SSE writers can interrupt it; ``active_run_id``
         registers it in ``_active_run_agents``. Under a confirmed model lock the actual
@@ -3966,7 +3967,11 @@ class APIServerAdapter(OpenAICompatRoutesMixin, BasePlatformAdapter):
         ``resume_unanswered_turn`` marks a policy-gated re-run of a turn whose user row the failed attempt
         already persisted: the transcript's unanswered tail row is adopted from ``conversation_history``
         as THIS turn's user message instead of being appended a second time
-        (``agent.session_persistence.adopt_unanswered_turn``; #115325)."""
+        (``agent.session_persistence.adopt_unanswered_turn``; #115325).
+        ``approval_target_q`` (ganiu, 2026-08-01): when set, approval prompts raised during this
+        turn are ALSO mirrored onto that queue as ``approval.request`` events so an
+        OpenAI-compatible client (the GaNiu backend) can raise its own approval dialog; the
+        registration is cleaned up in ``finally``."""
         loop = asyncio.get_running_loop()
         # ContextVars do not follow run_in_executor threads: capture here, re-enter in _run().
         request_profile = _api_request_profile.get()
