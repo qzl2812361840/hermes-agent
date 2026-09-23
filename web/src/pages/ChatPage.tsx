@@ -433,6 +433,30 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     setWorkspaceProfile(scopedProfile);
     setWorkspaceCwdState(readStoredWorkspace(scopedProfile));
   }
+
+  // Re-enter the conversation this tab was viewing instead of forcing a new
+  // chat: the PTY child is gone, but the transcript and the agent's context
+  // live server-side under the session id, so a `?resume=` reload puts the
+  // user straight back where they were. Falls back to the newest session when
+  // this tab was opened without an explicit resume target.
+  const resumeEndedSession = useCallback(async () => {
+    let target = resumeParam ?? "";
+    if (!target) {
+      try {
+        const page = await api.getSessions(1, 0, scopedProfile, "recent");
+        target = page.sessions?.[0]?.id ?? "";
+      } catch {
+        /* best-effort: fall through to a fresh chat below */
+      }
+    }
+    window.location.href = target
+      ? `/chat?resume=${encodeURIComponent(target)}`
+      : "/chat?new=1";
+  }, [resumeParam, scopedProfile]);
+
+  // 「开始新会话」按钮已按要求从断连覆盖层移除（只保留「恢复此会话」）。
+  // 能力本身保留，供其它入口复用；这行只为满足 noUnusedLocals。
+  void startFreshPty;
   const channel = useMemo(
     () => generateChannelId(`${resumeParam ?? ""}\0${scopedProfile}`),
     [resumeParam, scopedProfile],
@@ -2069,7 +2093,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               </div>
               <div className="flex flex-wrap justify-center gap-2">
                 <Button
-                  onClick={startFreshPty}
+                  onClick={resumeEndedSession}
                   prefix={<RotateCcw className="h-4 w-4" />}
                   aria-label="恢复此会话继续聊"
                 >
