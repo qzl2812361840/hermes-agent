@@ -35,6 +35,7 @@ import { ChatSessionList } from "@/components/ChatSessionList";
 import { usePageHeader } from "@/contexts/usePageHeader";
 import { useI18n } from "@/i18n";
 import { api } from "@/lib/api";
+import { readStoredWorkspace, writeStoredWorkspace } from "@/lib/chat-workspaces";
 import { latchChatActivation } from "@/lib/chat-activation";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { normalizeSessionTitle } from "@/lib/chat-title";
@@ -90,39 +91,16 @@ import {
   ptyRejectionBanner,
   type PtyBannerAction,
 } from "@/lib/pty-close-copy";
+import { ptyAttachToken } from "@/lib/pty-attach-token";
 import { loseWebglContexts } from "@/lib/xterm-webgl-release";
 import { PluginSlot } from "@/plugins";
 import { useTheme } from "@/themes";
 import { useProfileScope } from "@/contexts/useProfileScope";
 import { errorMessage } from "@/lib/api-error";
 
-// Stable per-browser token identifying THIS chat tab's keep-alive PTY session.
-// Sent as ?attach=; lets a refresh/disconnect reattach to the same live process
-// instead of spawning a fresh one. Per-localStorage, so other devices can't grab it.
-// ``rotate`` mints a new token — used when the user explicitly starts a fresh
-// session so the old keep-alive PTY is NOT reattached (the registry reaps it).
-const PTY_ATTACH_TOKEN_KEY = "hermes.pty.token.chat";
-function ptyAttachToken(rotate = false): string {
-  let t = "";
-  if (!rotate) {
-    try {
-      t = window.localStorage.getItem(PTY_ATTACH_TOKEN_KEY) ?? "";
-    } catch {
-      /* private mode / storage blocked */
-    }
-  }
-  if (!t) {
-    const a = new Uint8Array(16);
-    crypto.getRandomValues(a);
-    t = Array.from(a, (b) => b.toString(16).padStart(2, "0")).join("");
-    try {
-      window.localStorage.setItem(PTY_ATTACH_TOKEN_KEY, t);
-    } catch {
-      /* ignore */
-    }
-  }
-  return t;
-}
+// Per-tab keep-alive identity (`?attach=`): lives in pty-attach-token.ts so a
+// second tab — including a Chrome "Duplicate tab" — gets its own PTY instead of
+// taking over this one. See #115304.
 
 // Channel id ties this chat tab's PTY child (publisher) to its sidebar
 // (subscriber).  Generated once per mount so a tab refresh starts a fresh
@@ -434,30 +412,27 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   // management profile. Changing it remounts the terminal (key below /
   // effect dep) so the user explicitly starts a fresh scoped session.
   const { profile: scopedProfile } = useProfileScope();
-
-  // Re-enter the conversation this tab was viewing instead of forcing a new
-  // chat: the PTY child is gone, but the transcript and the agent's context
-  // live server-side under the session id, so a `?resume=` reload puts the
-  // user straight back where they were. Falls back to the newest session when
-  // this tab was opened without an explicit resume target.
-  const resumeEndedSession = useCallback(async () => {
-    let target = resumeParam ?? "";
-    if (!target) {
-      try {
-        const page = await api.getSessions(1, 0, scopedProfile, "recent");
-        target = page.sessions?.[0]?.id ?? "";
-      } catch {
-        /* best-effort: fall through to a fresh chat below */
-      }
-    }
-    window.location.href = target
-      ? `/chat?resume=${encodeURIComponent(target)}`
-      : "/chat?new=1";
-  }, [resumeParam, scopedProfile]);
-
-  // 「开始新会话」按钮已按要求从断连覆盖层移除（只保留「恢复此会话」）。
-  // 能力本身保留，供其它入口复用；这行只为满足 noUnusedLocals。
-  void startFreshPty;
+  // Workspace a FRESH chat starts in (`/api/pty?cwd=`), persisted per
+  // management profile (a phone remembers the repo it drives). The connect
+  // effect reads storage directly, so changing the picker never respawns the
+  // live PTY: it applies on the next "New chat".
+  const [workspaceCwd, setWorkspaceCwdState] = useState(() =>
+    readStoredWorkspace(scopedProfile),
+  );
+  const setWorkspaceCwd = useCallback(
+    (next: string) => {
+      writeStoredWorkspace(scopedProfile, next);
+      setWorkspaceCwdState(next);
+    },
+    [scopedProfile],
+  );
+  // Profile switch: show that profile's remembered workspace (state, not an
+  // effect, so no cascading render).
+  const [workspaceProfile, setWorkspaceProfile] = useState(scopedProfile);
+  if (workspaceProfile !== scopedProfile) {
+    setWorkspaceProfile(scopedProfile);
+    setWorkspaceCwdState(readStoredWorkspace(scopedProfile));
+  }
   const channel = useMemo(
     () => generateChannelId(`${resumeParam ?? ""}\0${scopedProfile}`),
     [resumeParam, scopedProfile],
@@ -1319,10 +1294,14 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       const params: Record<string, string> = { channel };
       if (resumeParam) params.resume = resumeParam;
       if (forceFresh) params.fresh = "1";
+      // Picked workspace: only meaningful for a fresh chat (a resumed session
+      // keeps its own cwd); the server validates the directory exists.
+      const pickedWorkspace = resumeParam ? "" : readStoredWorkspace(scopedProfile);
+      if (pickedWorkspace) params.cwd = pickedWorkspace;
       // Keep-alive identity: reattach to this tab's living PTY across
       // refresh/transient drops. A forced-fresh start rotates the token so
       // the previous keep-alive PTY is not reattached (registry reaps it).
-      params.attach = ptyAttachToken(forceFresh);
+      params.attach = await ptyAttachToken(forceFresh);
       // Profile-scoped chat: the PTY child gets HERMES_HOME pointed at the
       // selected profile, so the conversation runs with that profile's model,
       // skills, memory, and sessions (see web_server._resolve_chat_argv).
@@ -1632,7 +1611,12 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         if (!SGR_MOUSE_RE.test(data)) {
           compositionForwarder.noteTerminalData(data);
         }
-        forwardPtyData(data);
+        // A mobile IME can re-emit just-committed composition text through
+        // onData; only the part that is not an echo of that commit is real.
+        const unechoed = compositionForwarder.filterTerminalData(data);
+        if (unechoed) {
+          forwardPtyData(unechoed);
+        }
       });
 
       onResizeDisposable = term.onResize(({ cols, rows }) => {
@@ -1965,6 +1949,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               profile={scopedProfile}
               onPicked={closeMobilePanel}
               onNewChat={startFreshDashboardChat}
+              workspaceCwd={workspaceCwd}
+              onWorkspaceChange={setWorkspaceCwd}
             />
           </div>
         </div>
@@ -2165,6 +2151,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 activeSessionId={resumeParam}
                 profile={scopedProfile}
                 onNewChat={startFreshDashboardChat}
+                workspaceCwd={workspaceCwd}
+                onWorkspaceChange={setWorkspaceCwd}
               />
             </div>
           </div>
