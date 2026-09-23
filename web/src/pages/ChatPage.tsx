@@ -723,30 +723,53 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     // must upload browser bytes to HERMES_HOME/images, then drive `/image`
     // over the PTY (same burst-then-Return timing as handleCopyLast).
     let imageUploadDisposed = false;
-    const pasteDelay = () =>
-      new Promise<void>((resolve) => window.setTimeout(resolve, 40));
+    // 远端浏览器（手机走公网）上 `/image` 的往返可能远超 100ms：固定延时会让回车落在
+    // 空输入框上被内核吞掉 —— 图片只挂在输入框里发不出去，越点越堆。改成「看着输出流
+    // 等 token 真正落进输入框」，再回车提交，并留一次兜底回车。
+    let ptyTail = "";
+    const IMAGE_TOKEN_RE = /\[\[\s*Image\s*\d+\s*\]\]/;
+    const sleepMs = (ms: number) =>
+      new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+    const waitForImageToken = async (timeoutMs: number) => {
+      const deadline = Date.now() + timeoutMs;
+      while (Date.now() < deadline) {
+        if (IMAGE_TOKEN_RE.test(ptyTail)) return true;
+        await sleepMs(60);
+      }
+      return false;
+    };
+    const submitComposerAfterAttach = async () => {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const s = wsRef.current;
+        if (!s || s.readyState !== WebSocket.OPEN) return;
+        s.send("\r");
+        await sleepMs(700);
+        // 窗口里还挂着 token = 这一脚没落上；空回车会被内核忽略，多发一次无害。
+        if (!IMAGE_TOKEN_RE.test(ptyTail.slice(-600))) return;
+      }
+    };
+    const pasteDelay = () => sleepMs(40);
     const reportImageUploadError = (err: unknown) => {
       const message = err instanceof Error ? err.message : String(err);
       console.warn("[dashboard chat] image upload failed:", message);
-      setBanner(`Image upload failed: ${message}`);
+      setBanner(`图片上传失败：${message}`);
     };
     const driveImageAttach = async (paths: string[]) => {
       for (const path of paths) {
         if (imageUploadDisposed) return;
         const ws = wsRef.current;
         if (!ws || ws.readyState !== WebSocket.OPEN) {
-          setBanner(
-            "Image uploaded, but chat is not connected — try again.",
-          );
+          setBanner("图片已上传，但聊天连接断开了，请重连后再发一次。");
           return;
         }
+        ptyTail = ""; // 只看这次以后的输出，历史里的同款 token 不会误判
         ws.send(`/image ${path}`);
-        await new Promise<void>((resolve) => window.setTimeout(resolve, 100));
-        const s = wsRef.current;
-        if (!s || s.readyState !== WebSocket.OPEN) return;
-        s.send("\r");
+        // 快网 100ms 就回来了，手机公网可能一两秒 —— 等到真正的 token 再提交；
+        // 万一这个流的 token 没被识别到，下面的兜底回车也会把图发出去。
+        await waitForImageToken(2500);
         await pasteDelay();
       }
+      await submitComposerAfterAttach();
       term.focus();
     };
     const uploadAndAttachImages = (files: File[]) => {
@@ -1510,6 +1533,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         ? () => termRef.current?.scrollToBottom()
         : undefined;
       term.write(rendered, followScroll);
+      // 图片附件链路要「等 token 真的落进输入框」再回车（见 driveImageAttach），
+      // 这里留一段最近的输出给那个等待循环用；只保留尾部，避免无限增长。
+      ptyTail = (ptyTail + rendered).slice(-4000);
       noteResumePtyChunk(rendered);
     };
 
@@ -2140,7 +2166,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             <span className="inline-flex items-center gap-1.5">
               <Copy className="h-3 w-3 shrink-0" />
               <span className="hidden min-[400px]:inline tracking-wide">
-                {copyState === "copied" ? "copied" : "copy last response"}
+                {copyState === "copied" ? "已复制" : "复制上一条回复"}
               </span>
             </span>
           </Button>
