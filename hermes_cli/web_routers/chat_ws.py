@@ -548,6 +548,9 @@ async def pty_ws(ws: WebSocket) -> None:
     # registry) forwards output to whichever socket is attached and ring-buffers
     # it while detached. On child EOF it closes the attached socket with 4410,
     # which unparks ws.receive() — same half-open protection as the legacy pump.
+    # 2026-09-24 嘎妞补丁：记录断开码/原因（谁先断的），排查「页面半分钟一重连」。
+    _disconnect_code = None
+    _disconnect_reason = ""
     try:
         while True:
             try:
@@ -555,6 +558,10 @@ async def pty_ws(ws: WebSocket) -> None:
             except RuntimeError:  # receive() after the drain task already closed us
                 break
             if msg.get("type") == "websocket.disconnect":
+                # 1006/UnexpectedClose: 对端没发关闭帧（链路断/心跳被判死/进程没了）
+                # 1000/1001: 对端正常关闭（页面刷新、切走、浏览器主动关）
+                _disconnect_code = msg.get("code")
+                _disconnect_reason = msg.get("reason") or ""
                 break
             raw = msg.get("bytes")
             if raw is None:
@@ -597,8 +604,9 @@ async def pty_ws(ws: WebSocket) -> None:
         # 2026-09-23 嘎妞补丁：断开留痕（谁、活了多久、什么状态码），便于定位重连
         try:
             _log.info(
-                "pty closed peer=%s alive=%.1fs ws_state=%s app_state=%s",
-                peer, _time.monotonic() - _t0, ws.client_state, ws.application_state,
+                "pty closed peer=%s alive=%.1fs code=%s reason=%r ws_state=%s app_state=%s",
+                peer, _time.monotonic() - _t0, _disconnect_code, _disconnect_reason,
+                ws.client_state, ws.application_state,
             )
         except Exception:
             pass
