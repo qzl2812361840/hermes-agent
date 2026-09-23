@@ -336,6 +336,10 @@ class CLIInitMixin:
             logger.warning("Failed to initialize SessionDB — session will NOT be indexed for search: %s", e)
             from hermes_state_user_copy import describe_storage_failure, storage_failure_details
             failure = describe_storage_failure(e)
+            # 2026-09-24 修（ganiu-patch-guard 未定义名扫描命中）：Python 在 except 块结束时
+            # 会删除异常变量 e，而下面这个闭包若在块外被调用就拿不到 e → NameError，
+            # 偏偏炸在"会话存储不可用"这条诊断路径上。留一个普通局部变量做稳定引用。
+            _exc = e
             def _present_store_warning():
                 try:
                     Console(stderr=True).print(
@@ -344,7 +348,7 @@ class CLIInitMixin:
                         "Searching past sessions is also disabled.\n"
                         f"  Reason: {failure.gloss}.\n"
                         f"  {failure.action}\n"
-                        f"  [dim]Details: {storage_failure_details(e)}[/dim]"
+                        f"  [dim]Details: {storage_failure_details(_exc)}[/dim]"
                     )
                 except Exception:
                     print(
