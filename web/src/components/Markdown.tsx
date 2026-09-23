@@ -307,7 +307,7 @@ function InlineContent({
             return (
               <code
                 key={i}
-                className="bg-secondary/60 px-1.5 py-0.5 text-xs font-mono text-primary/90"
+                className="bg-secondary/60 px-1.5 py-0.5 text-xs font-mono text-emerald-200"
               >
                 {node.content}
               </code>
