@@ -314,7 +314,7 @@ TIPS = [
     '/steer <prompt> injects a note after the next tool call — nudge direction mid-task without interrupting.',
     '/goal <text> sets a standing Ralph-loop objective — Hermes auto-continues turn after turn until a judge says done.',
     '/snapshot create [label] saves a full state snapshot of Hermes config; /snapshot restore <id> reverts later.',
-    '/copy [N] copies the last assistant response to your clipboard, or the Nth-from-last with a number.',
+    '/copy [N] 把上一条回复复制到剪贴板；带数字则复制倒数第 N 条。',
     '/redraw forces a full UI repaint, fixing terminal drift after tmux resize or mouse selection artifacts.',
     '/agents (alias /tasks) shows active agents and running background tasks across the current session.',
     '/footer toggles the gateway footer on final replies showing model, context %, and cwd.',

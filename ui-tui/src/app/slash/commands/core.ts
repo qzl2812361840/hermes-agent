@@ -382,7 +382,7 @@ export const coreCommands: SlashCommand[] = [
   },
 
   {
-    help: 'copy selection or assistant message',
+    help: '复制选中内容或上一条回复',
     name: 'copy',
     run: async (arg, ctx) => {
       const { sys } = ctx.transcript
@@ -391,21 +391,21 @@ export const coreCommands: SlashCommand[] = [
         const text = await ctx.composer.selection.copySelection()
 
         if (text) {
-          return sys(`copied ${text.length} characters`)
+          return sys(`已复制 ${text.length} 个字符`)
         } else {
-          return sys('clipboard copy failed — try HERMES_TUI_FORCE_OSC52=1 to force the escape sequence')
+          return sys('剪贴板复制失败 — 可设 HERMES_TUI_FORCE_OSC52=1 强制走转义序列')
         }
       }
 
       if (arg && Number.isNaN(parseInt(arg, 10))) {
-        return sys('usage: /copy [number]')
+        return sys('用法：/copy [序号]')
       }
 
       const all = ctx.local.getHistoryItems().filter(m => m.role === 'assistant')
       const target = all[arg ? Math.min(parseInt(arg, 10), all.length) - 1 : all.length - 1]
 
       if (!target) {
-        return sys('nothing to copy — start a conversation first')
+        return sys('还没有可复制的内容 — 先聊两句')
       }
 
       const shouldUseTerminalClipboard = isRemoteShellSession(process.env)
@@ -413,7 +413,7 @@ export const coreCommands: SlashCommand[] = [
       if (shouldUseTerminalClipboard) {
         writeOsc52Clipboard(target.text)
 
-        return sys('sent OSC52 copy sequence (terminal support required)')
+        return sys('已发送 OSC52 复制序列（需终端支持）')
       }
 
       void writeClipboardText(target.text)
@@ -423,15 +423,15 @@ export const coreCommands: SlashCommand[] = [
           }
 
           if (nativeOk) {
-            sys('copied to clipboard')
+            sys('已复制到剪贴板')
           } else {
             writeOsc52Clipboard(target.text)
-            sys('sent OSC52 copy sequence (terminal support required)')
+            sys('已发送 OSC52 复制序列（需终端支持）')
           }
         })
         .catch(error => {
           if (!ctx.stale()) {
-            sys(`copy failed: ${String(error)}`)
+            sys(`复制失败：${String(error)}`)
           }
         })
     }
