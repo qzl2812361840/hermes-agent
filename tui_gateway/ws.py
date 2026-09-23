@@ -401,7 +401,8 @@ async def handle_ws(ws: Any, *, auth_identity: dict | None = None, subprotocol: 
             await ws.close()
         except Exception as exc:
             _log.debug("ws close failed peer=%s error=%s", peer, exc)
-        _log.info(
+        _log.warning(  # ganiu: disconnect reason logging
+            
             "ws closed peer=%s reason=%s messages=%d parse_errors=%d "
             "dispatch_crashes=%d send_failures=%d reaped_sessions=%d detached_sessions=%d",
             peer, disconnect_reason, messages, parse_errors, dispatch_crashes, send_failures, reaped_sessions, detached_sessions,

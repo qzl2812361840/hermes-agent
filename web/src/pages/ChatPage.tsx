@@ -25,7 +25,7 @@ import "@xterm/xterm/css/xterm.css";
 import { Button } from "@nous-research/ui/ui/components/button";
 import { Typography } from "@nous-research/ui/ui/components/typography/index";
 import { cn } from "@/lib/utils";
-import { Copy, PanelRight, RotateCcw, X } from "lucide-react";
+import { Copy, ImagePlus, PanelRight, RotateCcw, X } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useSearchParams } from "react-router";
@@ -231,6 +231,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const navigate = useNavigate();
   const [copyState, setCopyState] = useState<"idle" | "copied">("idle");
   const copyResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 手机/桌面通用的「发送图片」入口：老 PC 上靠粘贴、手机上根本没有粘贴事件
+  const imageAttachInputRef = useRef<HTMLInputElement | null>(null);
+  const uploadImagesRef = useRef<((files: File[]) => void) | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptRef = useRef(0);
   const forceFreshPtyRef = useRef(false);
@@ -758,6 +761,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         await driveImageAttach(paths);
       })().catch(reportImageUploadError);
     };
+    // 暴露给工具栏按钮（粘贴/拖拽之外的第二条路）
+    uploadImagesRef.current = uploadAndAttachImages;
     const handleBrowserPaste = (ev: ClipboardEvent) => {
       const files = imageFilesFromTransfer(ev.clipboardData);
       if (!files.length) return;
@@ -1662,6 +1667,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     return () => {
       unmounting = true;
       imageUploadDisposed = true;
+      uploadImagesRef.current = null;
       syncMetricsRef.current = null;
       clearEraseSuppressionTimer();
       clearResumeLoadingTimers();
@@ -1895,8 +1901,14 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     return () => clearTimeout(t);
   }, [ptyState]);
 
+  // 2026-09-24 嘎妞补丁：只有「断线 2.5 秒仍未恢复」才亮出这行英文横幅。
+  // 手机侧链路（运营商/代理）会每隔约 70 秒注入一次 RST 掐断这条 WS，
+  // 页面 250ms 就自动重连上了 —— 原来的写法是「一断就亮」，主人每分钟
+  // 都看到 "Chat connection interrupted. Reconnecting..." 像是页面一直在重连。
   const reconnectBanner =
-    ptyState === "reconnecting" ? PTY_RECONNECTING_BANNER : null;
+    ptyState === "reconnecting" && reconnectBannerStale
+      ? PTY_RECONNECTING_BANNER
+      : null;
   const visibleBanner = banner ?? reconnectBanner;
   // 2026-09-24 嘎妞补丁：反代链路上的瞬断通常 1 秒内就自动恢复，
   // 原来的「一断就弹警告框」让主人以为页面一直在重连。断线 2.5 秒仍未
@@ -2127,6 +2139,45 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               </span>
             </span>
           </Button>
+
+          {/* 发送图片：手机上既没有粘贴事件也没有拖拽，必须给一个真正的选图入口 */}
+          <Button
+            ghost
+            onClick={() => imageAttachInputRef.current?.click()}
+            title="发送图片（从相册或文件里选）"
+            aria-label="发送图片"
+            className={cn(
+              "absolute z-10",
+              "normal-case tracking-normal font-normal",
+              "rounded border border-current/30",
+              "bg-black/20",
+              "opacity-70 hover:opacity-100 hover:border-current/60",
+              "transition-opacity duration-150",
+              "bottom-2 left-2 px-2 py-1 text-xs sm:bottom-3 sm:left-3 sm:px-2.5 sm:py-1.5",
+              "lg:bottom-4 lg:left-4",
+            )}
+            style={{ color: terminalFg }}
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <ImagePlus className="h-3 w-3 shrink-0" />
+              <span className="hidden min-[400px]:inline tracking-wide">
+                图片
+              </span>
+            </span>
+          </Button>
+
+          <input
+            ref={imageAttachInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(ev) => {
+              const files = Array.from(ev.target.files ?? []);
+              ev.target.value = "";
+              uploadImagesRef.current?.(files);
+            }}
+          />
 
           {chatPanelCollapsed && (
             <Button
