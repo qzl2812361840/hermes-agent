@@ -75,8 +75,14 @@ _PTY_READ_CHUNK_TIMEOUT = 0.2
 # loop (keeps dashboard idle CPU low).
 # A positive sleep lets other coroutines run and keeps dashboard idle CPU low (#42627).
 _PTY_IDLE_BACKOFF = 0.05
+# 2026-09-24 嘎妞补丁：僵尸 PTY 回收窗口从 30 分钟压到 5 分钟、上限 16 → 6，
+# 并允许用环境变量调（HERMES_PTY_TTL_SECONDS / HERMES_PTY_MAX_SESSIONS）。
+# 背景：客户端断开时服务端可能看不到（caddy 中转），attached 会一直是 True，
+# 于是只能靠 ttl 兜底——30 分钟太长，每个僵尸约 600MB。
 PTY_REGISTRY = PtySessionRegistry(
-    ttl=30 * 60, max_sessions=16, buffer_cap=1 * 1024 * 1024, read_timeout=_PTY_READ_CHUNK_TIMEOUT)
+    ttl=float(os.environ.get("HERMES_PTY_TTL_SECONDS", 5 * 60)),
+    max_sessions=int(os.environ.get("HERMES_PTY_MAX_SESSIONS", 6)),
+    buffer_cap=1 * 1024 * 1024, read_timeout=_PTY_READ_CHUNK_TIMEOUT)
 
 
 async def _close_stalled_pty_input(ws: "WebSocket", *, path: str) -> None:

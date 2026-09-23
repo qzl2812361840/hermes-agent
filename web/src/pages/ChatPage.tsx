@@ -1231,10 +1231,15 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       lastConnectedResumeRef.current !== null &&
       (resumeParam ?? "") !== lastConnectedResumeRef.current;
     if (resumeChanged) {
-      // Reserve a NEW attach token for this connect without touching the
-      // caller-driven `forceFreshPtyRef` flag (which controls the fresh=1
-      // query param and is meant for explicit "start new session" clicks).
-      ptyAttachToken(true);
+      // 2026-09-24 嘎妞补丁（面板内存泄漏根因）：这里过去会 ptyAttachToken(true)
+      // 换一个新 token。服务端 attach 键本来就是 `token\0profile\0resume`
+      // （web_routers/chat_ws.py:511）——resume 目标变了自然会 miss 并新起 PTY，
+      // 换 token 纯属多余；而每换一次 token，旧 token 的 PTY 就再也没人能
+      // attach，永久赖在注册表里（每个约 600MB）。服务端看不到客户端断开
+      // （attached 永远为真），30 分钟 ttl 也回收不掉。
+      // 实测：面板每 1~2 分钟泄漏一对进程，可用内存 2.6G → 0.9G。
+      // 保留 resumeChanged 只为下面更新 lastConnectedResumeRef。
+      void resumeChanged;
     }
     const forceFresh = forceFreshPtyRef.current;
     forceFreshPtyRef.current = false;
