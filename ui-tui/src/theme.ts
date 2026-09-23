@@ -401,20 +401,20 @@ export const DARK_SEEDS: ThemeSeeds = {
 // render the same thing Cursor always showed. Text/prompt stay ink — body
 // copy historically rendered in the terminal's default near-black fg.
 export const LIGHT_SEEDS: ThemeSeeds = {
-  accent: '#956E00',
+  accent: '#3D2F13',
   bg: '#ffffff',
-  border: '#A56628',
+  border: '#9AA0A6',
   error: '#C14240',
   ok: '#367E39',
-  primary: '#867000',
+  primary: '#3D2F13',
   prompt: '#2B2014',
   shellDollar: '#377BB3',
-  statusBad: '#A65A00',
+  statusBad: '#8A8A8A',
   statusCritical: '#B94D4D',
   statusGood: '#5C7A5C',
-  statusWarn: '#867000',
+  statusWarn: '#6B6B6B',
   text: '#3D2F13',
-  warn: '#956115'
+  warn: '#6B6B6B'
 }
 
 export const DARK_THEME: Theme = {

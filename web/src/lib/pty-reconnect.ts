@@ -26,7 +26,11 @@ export const PTY_TICKET_TIMEOUT_MS = 8000
 // banner offers a manual Reconnect). Deterministic so the banner can print it.
 export const PTY_RECONNECT_BASE_MS = 250
 export const PTY_RECONNECT_MAX_MS = 3000
-export const PTY_RECONNECT_MAX_ATTEMPTS = 5
+// 2026-09-24 嘎妞补丁：原来的 5 次上限会让一次网络抖动（浏览器↔反代链路瞬断，
+// 服务端两次 WS 同秒断开=1006）把界面钉死在「重连已停止」，必须手点才会恢复。
+// 面板走公网反代，这种瞬断是常态：上限放到 600（3 秒封顶≈半小时），
+// 掉线即自动恢复，界面上只剩一个 3 秒内一闪而过的提示；「立即重连」按钮保留。
+export const PTY_RECONNECT_MAX_ATTEMPTS = 600
 
 // Browsers cannot emit WebSocket ping frames directly. A resize control frame
 // is consumed by `/api/pty` without reaching the child process, so it is a

@@ -1860,11 +1860,26 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   // above the app sidebar (`z-50`) and mobile chrome (`z-40`).  The main
   // dashboard column uses `relative z-2`, which traps `position:fixed`
   // descendants below those layers (see Toast.tsx).
+  // 2026-09-24 嘎妞补丁：断开后延迟 2.5 秒才把「正在重连」提示亮出来。
+  const [reconnectBannerStale, setReconnectBannerStale] = useState(false);
+  useEffect(() => {
+    if (ptyState === "open") {
+      setReconnectBannerStale(false);
+      return;
+    }
+    const t = setTimeout(() => setReconnectBannerStale(true), 2500);
+    return () => clearTimeout(t);
+  }, [ptyState]);
+
   const reconnectBanner =
     ptyState === "reconnecting" ? PTY_RECONNECTING_BANNER : null;
   const visibleBanner = banner ?? reconnectBanner;
+  // 2026-09-24 嘎妞补丁：反代链路上的瞬断通常 1 秒内就自动恢复，
+  // 原来的「一断就弹警告框」让主人以为页面一直在重连。断线 2.5 秒仍未
+  // 恢复才显示，快速自动恢复的那次完全不打扰。
   const showReconnectOverlay =
-    ptyState === "reconnecting" || (ptyState === "closed" && !banner);
+    ((ptyState === "reconnecting" || (ptyState === "closed" && !banner)) &&
+      reconnectBannerStale);
   const showResumeLoadingOverlay = shouldShowResumeLoadingOverlay({
     hasResumeTarget: Boolean(resumeParam),
     ptyState,
@@ -2054,7 +2069,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               </div>
               <div className="flex flex-wrap justify-center gap-2">
                 <Button
-                  onClick={resumeEndedSession}
+                  onClick={startFreshPty}
                   prefix={<RotateCcw className="h-4 w-4" />}
                   aria-label="恢复此会话继续聊"
                 >
