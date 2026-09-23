@@ -1021,22 +1021,22 @@ class CLICommandsMixin:
         arg = _command_arg(cmd_original)
         assistant = [m for m in self.conversation_history if m.get("role") == "assistant"]
         if not assistant:
-            return _cp("  Nothing to copy yet.")
+            return _cp("  还没有可复制的内容。")
         if arg:
             try:
                 idx = int(arg) - 1
             except ValueError:
-                return _cp("  Usage: /copy [number]")
+                return _cp("  用法：/copy [序号]")
             if idx < 0 or idx >= len(assistant):
-                return _cp(f"  Invalid response number. Use 1-{len(assistant)}.")
+                return _cp(f"  序号不对，可用范围 1-{len(assistant)}。")
         else:  # latest response that has copyable text
             idx = next((i for i in range(len(assistant) - 1, -1, -1)
                         if _assistant_copy_text(assistant[i].get("content"))), -1)
             if idx < 0:
-                return _cp("  Nothing to copy in assistant responses yet.")
+                return _cp("  回复里还没有可复制的内容。")
         text = _assistant_copy_text(assistant[idx].get("content"))
         if not text:
-            return _cp("  Nothing to copy in that assistant response.")
+            return _cp("  这一条回复里没有可复制的内容。")
         try:
             from hermes_cli.clipboard import is_remote_shell_session, write_clipboard_text
             # Over SSH native tools write the REMOTE clipboard; OSC 52 reaches the user's terminal.
@@ -1044,11 +1044,11 @@ class CLICommandsMixin:
             if is_remote_shell_session() or not write_clipboard_text(text):
                 # Fixes #31528.
                 self._write_osc52_clipboard(text)
-                _cp(f"  Copied assistant response #{idx + 1} via OSC 52 (terminal support required)")
+                _cp(f"  已复制第 {idx + 1} 条回复（走 OSC 52，需终端支持）")
             else:
-                _cp(f"  Copied assistant response #{idx + 1} to clipboard")
+                _cp(f"  已复制第 {idx + 1} 条回复到剪贴板")
         except Exception as e:
-            _cp(f"  Clipboard copy failed: {e}")
+            _cp(f"  复制到剪贴板失败：{e}")
 
     def _handle_image_command(self, cmd_original: str):
         """Handle /image <path> — attach a local image file for the next prompt."""
