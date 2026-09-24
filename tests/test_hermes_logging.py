@@ -129,6 +129,42 @@ class TestSetupLogging:
             hermes_home / "logs" / "agent.log"
         ).read_text()
 
+    @pytest.mark.parametrize("launch_redacts, routed_opt_out, routed_redacted", [
+        (False, None, True),      # the launch profile opted out, the routed one did not
+        (True, "env", False),     # the routed profile opted out in its own .env
+    ], ids=["launch-opt-out", "routed-env-opt-out"])
+    def test_routed_records_follow_their_own_profiles_redaction_policy(
+            self, hermes_home, tmp_path, monkeypatch, launch_redacts, routed_opt_out, routed_redacted):
+        """The listener thread formats every record after its profile scope is gone, so a routed profile's own
+        agent.log was redacted by the LAUNCH profile's policy: raw credentials if only the launch opted out."""
+        from agent import redact
+        from hermes_constants import reset_hermes_home_override, set_hermes_home_override
+
+        monkeypatch.setattr(redact, "_REDACT_ENABLED", launch_redacts)
+        monkeypatch.setattr(redact, "_REDACT_ENABLED_BY_HOME", {})
+        routed = tmp_path / "profile-b"
+        routed.mkdir()
+        if routed_opt_out == "config":
+            (routed / "config.yaml").write_text("security:\n  redact_secrets: false\n", encoding="utf-8")
+        elif routed_opt_out == "env":
+            (routed / ".env").write_text("HERMES_REDACT_SECRETS=false\n", encoding="utf-8")
+        hermes_logging.setup_logging(hermes_home=hermes_home)
+        assert hermes_logging.enable_profile_log_routing([hermes_home, routed]) is True
+        routed_secret = "sk-proj-ROUTEDPROFILE" + "b" * 24
+        launch_secret = "sk-proj-LAUNCHPROFILE" + "a" * 24
+
+        logger = logging.getLogger("gateway.redaction-routing-test")
+        token = set_hermes_home_override(routed)
+        try:
+            logger.warning("provider rejected key %s", routed_secret)
+        finally:
+            reset_hermes_home_override(token)
+        logger.warning("launch key %s", launch_secret)
+        hermes_logging.flush_log_queue()
+
+        assert (routed_secret not in (routed / "logs" / "agent.log").read_text()) is routed_redacted
+        assert (launch_secret not in (hermes_home / "logs" / "agent.log").read_text()) is launch_redacts
+
     def test_release_profile_log_handlers_closes_only_deleted_profile(self, hermes_home, tmp_path):
         """Profile deletion releases its routed log files without disturbing another profile."""
         from hermes_constants import reset_hermes_home_override, set_hermes_home_override
@@ -731,5 +767,40 @@ class TestSafeStderr:
         assert result.encoding == "utf-8"
         assert result.errors == "replace"
 
+
+
+class TestLineBufferPipedStdout:
+    """A piped stdout is line-buffered so headless log streams track the
+    agent loop incrementally (#92281); a TTY stdout is left alone."""
+
+    def _fake_stdout(self, isatty: bool):
+        from unittest.mock import MagicMock
+
+        stream = MagicMock()
+        stream.isatty.return_value = isatty
+        stream.reconfigure = MagicMock()
+        return stream
+
+    def test_tty_none_or_reconfigure_less_stdout_left_alone(self, monkeypatch):
+        from types import SimpleNamespace
+
+        tty = self._fake_stdout(isatty=True)
+        monkeypatch.setattr(sys, "stdout", tty)
+        hermes_logging._line_buffer_piped_stdout()
+        tty.reconfigure.assert_not_called()
+
+        monkeypatch.setattr(sys, "stdout", None)
+        hermes_logging._line_buffer_piped_stdout()  # must not raise
+        # A stream without reconfigure() (e.g. a print-redirect shim).
+        monkeypatch.setattr(sys, "stdout", SimpleNamespace(isatty=lambda: False))
+        hermes_logging._line_buffer_piped_stdout()
+
+    def test_setup_logging_applies_it_to_piped_stdout(self, tmp_path, monkeypatch):
+        stream = self._fake_stdout(isatty=False)
+        monkeypatch.setattr(sys, "stdout", stream)
+        hermes_logging.setup_logging(hermes_home=tmp_path, force=True)
+        # setup_logging runs per AIAgent build: a second call must not re-flush/reconfigure.
+        hermes_logging.setup_logging(hermes_home=tmp_path, force=True)
+        stream.reconfigure.assert_called_once_with(line_buffering=True)
 
 
