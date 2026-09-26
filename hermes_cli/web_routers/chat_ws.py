@@ -437,7 +437,7 @@ async def _pty_fail(ws: WebSocket, exc: BaseException) -> None:
 
 @router.websocket("/api/pty")
 async def pty_ws(ws: WebSocket) -> None:
-    from hermes_cli.web_server_chat import PTY_REGISTRY, PtyBridge, PtyUnavailableError, _PTY_BRIDGE_AVAILABLE, _RESIZE_RE
+    from hermes_cli.web_server_chat import PTY_REGISTRY, PtyBridge, PtyUnavailableError, _PTY_BRIDGE_AVAILABLE, _RESIZE_RE, _DEC_PRIVATE_MODE_RE, _TERM_AUTOREPLY_RE  # ganiu (2026-09-27): 升级吞掉的导入补回
     from pm.package import InstallError
     gate = await _ws_gate(ws, "pty")
     if gate is None:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os  # ganiu (2026-09-27): _mcp_disabled_by_env 需要
 import sys
 import threading
 from contextlib import contextmanager, nullcontext
