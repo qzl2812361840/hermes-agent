@@ -9,14 +9,15 @@ import type { ApprovalReq, ClarifyReq, ConfirmReq } from '../types.js'
 import { chipRowProps } from './overlayPrimitives.js'
 import { TextInput } from './textInput.js'
 
-const APPROVAL_OPTS = ['once', 'session', 'always', 'deny'] as const
+const APPROVAL_OPTS = ['once', 'session', 'always', 'task', 'time1h', 'time5h', 'deny'] as const
 // tirith warning present → backend downgrades "always" to session scope, so drop it.
 const APPROVAL_OPTS_NO_ALWAYS = APPROVAL_OPTS.filter(o => o !== 'always')
 const APPROVAL_OPTS_SMART_DENY = ['once', 'deny'] as const
-const LABELS = { always: '永久允许', deny: '拒绝', once: '仅此一次', session: '本次会话' } as const
+const LABELS = { always: '永久允许', deny: '拒绝', once: '仅此一次', session: '本次会话',
+  task: '本任务内你决定', time1h: '1小时内你决定', time5h: '5小时内你决定' } as const
 const CMD_PREVIEW_LINES = 10
 
-type ApprovalChoice = 'always' | 'deny' | 'once' | 'session'
+type ApprovalChoice = 'always' | 'deny' | 'once' | 'session' | 'task' | 'time1h' | 'time5h'
 
 export function approvalOptions(req: ApprovalReq): readonly ApprovalChoice[] {
   if (req.choices) {

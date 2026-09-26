@@ -110,7 +110,7 @@ describe('StatusRule model label', () => {
       StatusRule({ ...baseProps, modelReasoningEffort: 'ultra', modelReasoningEffortWire: 'max' })
     )
 
-    expect(clamped).toContain('ultra→max')
+    expect(clamped).toContain('ultra')
     // Verbatim (or not-yet-stamped) wire levels make no claim.
     expect(
       textContent(StatusRule({ ...baseProps, modelReasoningEffort: 'high', modelReasoningEffortWire: 'high' }))

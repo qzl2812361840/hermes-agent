@@ -1483,6 +1483,16 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     const decoder = new TextDecoder();
     const sanitizer = new PtyResumeSanitizer();
     const beginResumeReplay = () => {
+      // 2026-09-25 嘎妞补丁（修「回答重复两遍」）：
+      // 重连后服务端会整段回放会话（200+ 消息、约 10-20 秒），而下面只在回放窗口里
+      // 抑制 ANSI 擦除码、并不清屏 → 回放内容直接叠在已有屏幕上，看起来就是同一段
+      // 回答出现两遍。这里先 reset 清掉旧屏，再由回放把屏幕与 scrollback 完整重建，
+      // 内容一条不丢（历史仍在会话里），只是不再重复渲染。
+      try {
+        termRef.current?.reset();
+      } catch {
+        /* xterm 未就绪时忽略：回放本身仍会刷新屏幕 */
+      }
       stickToBottomRef.current = true;
       if (!eraseSuppressionTimer) {
         eraseSuppressionTimer = setTimeout(() => {

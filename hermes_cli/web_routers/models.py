@@ -83,11 +83,26 @@ def get_model_info(profile: Optional[str] = None):
         except Exception:
             pass
 
+        # 嘎妞扩展（配套 ganiu-fallback-notice 插件）：fallback 发生时把「实际模型」
+        # 一并返回，供 TUI 模型徽章展示实际生效的模型（15 分钟内有效）。
+        fb: dict = {}
+        try:
+            import json as _json, time as _time, os as _os
+            _p = _os.path.join(_os.environ.get("HERMES_HOME") or _os.path.expanduser("~/.hermes"),
+                               "ganiu_active_model.json")
+            with open(_p, "r", encoding="utf-8") as _f:
+                _d = _json.load(_f)
+            if _time.time() - float(_d.get("at") or 0) <= 900:
+                fb = {"active_model": _d.get("actual_model") or "", "fallback_active": bool(_d.get("fallback"))}
+        except Exception:
+            fb = {}
+
         return {
             "model": model_name, "provider": provider, "auto_context_length": auto_ctx,
             "config_context_length": config_ctx_int,
             "effective_context_length": config_ctx_int or auto_ctx,  # what the agent actually uses
             "capabilities": caps,
+            **fb,
         }
     except HTTPException:
         # Unknown/invalid profile must surface as 404, not degrade into a

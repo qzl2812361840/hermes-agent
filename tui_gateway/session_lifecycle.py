@@ -375,6 +375,7 @@ def _finalize_session(session: dict | None, end_reason: str = "tui_close") -> No
     # ``conversation_history``: ``session["history"]`` and ``_session_messages`` alias the SAME list after a turn, so
     # the flush would treat every message as durable and skip it — data loss when finalize is the sole persist path.
     if hasattr(agent, "_persist_session") and (snapshot := getattr(agent, "_session_messages", None)):
+        _ganiu_rewrite_interrupt_metadata(snapshot)  # ganiu patch (2026-09-25): 见函数注释
         with contextlib.suppress(Exception):
             agent._persist_session(snapshot)
     # interrupted=True so crash-recovery plugins can flush state (mirrors cli.py atexit). The end-of-session
@@ -719,6 +720,31 @@ def _rebind_live_transport(sid: str, session: dict, transport: Transport) -> Non
     # See #83716.
     if transport is not _detached_ws_transport:
         _cancel_ws_orphan_reap(sid)  # the client is back — a pending ws-orphan reap must not fire
+
+
+# ganiu patch (2026-09-25): 落库前把内核的中断元数据换成一句人话。
+# 内核在"等待模型响应时被中断"后会把 final_response 写成
+# "Operation interrupted: waiting for model response (x.xs elapsed)."。三条实时显示路径
+# （tui_gateway/prompt_turn、gateway/run、ACP）都抑制这句，但退出时的 _persist_session 直接
+# 写 session["history"]——用户重连/翻历史就看见这句内部话，以为任务被放弃了。这里只改那一行
+# 文本，消息结构（角色、顺序、工具行）一个字不动。
+_GANIU_INTERRUPT_NOTE = (
+    "⏸️ 上一轮被打断了（服务器重启或会话断开时，模型还没来得及回答）。"
+    "这件事还没做——把要求再发一次，我接着做。"
+)
+
+
+def _ganiu_rewrite_interrupt_metadata(messages) -> None:
+    try:
+        from agent.conversation_loop import INTERRUPT_WAITING_FOR_MODEL_PREFIX as _prefix
+    except Exception:
+        return
+    for _m in messages or []:
+        if not isinstance(_m, dict) or _m.get("role") != "assistant":
+            continue
+        _c = _m.get("content")
+        if isinstance(_c, str) and _c.strip().startswith(_prefix):
+            _m["content"] = _GANIU_INTERRUPT_NOTE
 
 
 def _ws_orphan_keep_running() -> bool:

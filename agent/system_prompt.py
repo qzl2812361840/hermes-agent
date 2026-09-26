@@ -309,6 +309,18 @@ def _skills_prompt(agent: Any) -> str:
         _compact_cats = coding_compact_skill_categories(platform=agent.platform, cwd=resolve_context_cwd())
     except Exception:
         _compact_cats = frozenset()
+    # ganiu patch (2026-09-25): 嘎妞——把与当前任务无关的巨量技能分类降级为「只列技能名」。
+    # 官方 demote 机制（见 _render_skills_index 注释「NEVER drop entries … the skills work
+    # normally」）：技能一个都不删、不隐藏，skill_view(name) 照常加载，只是不再把描述塞进
+    # 每轮 system。不这么做时，620 个技能的描述每轮注入 7.4 万字符，直接拖慢首字响应。
+    _GANIU_COMPACT_CATEGORIES = frozenset({
+        "business", "ruflo-agents", "creative", "media", "productivity",
+        "note-taking", "email", "social-media", "smart-home", "gaming", "yuanbao",
+        # 2026-09-26 追加：低频大分类（合计约 3.9k 字符/轮）。降级只影响「描述是否每轮
+        # 注入」，技能一个不删、skill_view(name) 照常加载，靠名字也能选。
+        ".archive", "mlops", "agent-architecture", "agentchat",
+    })
+    _compact_cats = frozenset(_compact_cats or ()) | _GANIU_COMPACT_CATEGORIES
     return _pb.build_skills_system_prompt(available_tools=agent.valid_tool_names, available_toolsets=avail_toolsets,
                                          compact_categories=_compact_cats or None, skills_dir_override=_agent_skills_dir(agent))
 

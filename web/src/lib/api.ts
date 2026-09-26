@@ -2561,6 +2561,9 @@ export interface ModelInfoResponse {
     max_output_tokens?: number;
     model_family?: string;
   };
+  /** 嘎妞扩展：fallback 发生时实际生效的模型（15 分钟内有效） */
+  active_model?: string;
+  fallback_active?: boolean;
 }
 
 // ── Model options / assignment types ──────────────────────────────────

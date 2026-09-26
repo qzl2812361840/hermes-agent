@@ -454,7 +454,9 @@ const effortLabel = (effort?: string, wire?: string) => {
     return ''
   }
 
-  return sent && sent !== value ? `${value}→${sent}` : value
+  // 本地化(2026-09-26 主人)：只显示档位本身，不显示 "→max" 这种上游 wire 映射
+  void sent
+  return value
 }
 
 const shortModelLabel = (model: string) =>

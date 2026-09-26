@@ -137,6 +137,9 @@ export function ChatSidebar({
   // (currently unused) ModelInfoCard surfaces, so the dashboard exposes a
   // control to *set* the level, not just a read-only "Reasoning" badge.
   const [supportsReasoning, setSupportsReasoning] = useState(false)
+  // 嘎妞扩展：fallback 状态（主模型不可用、litellm 自动切换备用模型时）——
+  // 徽章显示实际生效的模型并在旁边打 ⚡，tooltip 给出配置模型对照。
+  const [fallbackInfo, setFallbackInfo] = useState<{ active: string; configured: string } | null>(null)
   // Bumped on model change/save so ReasoningPicker re-reads the saved effort
   // (config is profile-scoped the same way the model badge is).
   const [modelRefreshKey, setModelRefreshKey] = useState(0)
@@ -151,7 +154,13 @@ export function ChatSidebar({
     void api
       .getModelInfo(profile)
       .then(r => {
-        if (r?.model) setEffectiveModel(String(r.model))
+        // 嘎妞扩展：fallback 时徽章显示实际生效的模型（配置模型保留在 tooltip 里）。
+        const fbActive = !!(r?.fallback_active && r?.active_model)
+        const shown = fbActive ? String(r.active_model) : String(r?.model || '')
+        setFallbackInfo(
+          fbActive ? { active: String(r.active_model), configured: String(r?.model || '') } : null
+        )
+        if (shown) setEffectiveModel(shown)
         setSupportsReasoning(!!r?.capabilities?.supports_reasoning)
         // Bump so ReasoningPicker re-reads the saved effort for the new model.
         setModelRefreshKey(k => k + 1)
@@ -277,7 +286,14 @@ export function ChatSidebar({
 
       const delay = eventsReconnectDelayMs(attempt)
       attempt += 1
-      surface(eventsReconnectingMessage(delay))
+      // 2026-09-25 嘎妞补丁（修「一个断连冒出两种提示」）：
+      // 聊天区 /api/pty 断了会弹中间的 "Chat connection interrupted. Reconnecting..."，
+      // 侧边栏 /api/events 断了又弹右上角这条，两条通道同时抖 = 界面上出现两种重连提示。
+      // 瞬时抖动（1-5 次）不再提示；只有连续失败（>5 次，约十几秒没恢复）才在侧边栏
+      // 留一条，人工可见又不与聊天区的提示打架。真放弃时仍走上面的 gaveUp 分支。
+      if (attempt > 5) {
+        surface(eventsReconnectingMessage(delay))
+      }
 
       reconnectTimer = setTimeout(() => {
         reconnectTimer = null
@@ -356,6 +372,9 @@ export function ChatSidebar({
   // (a profile/channel switch bumps `version`).
   useEffect(() => {
     refreshEffectiveModel()
+    // 嘎妞扩展：fallback 状态随时会变——30 秒轮询刷新模型徽章（本地接口，开销可忽略）。
+    const fallbackPoll = setInterval(refreshEffectiveModel, 10000)
+    return () => clearInterval(fallbackPoll)
   }, [refreshEffectiveModel, version])
 
   const reconnect = useCallback(() => {
@@ -397,6 +416,14 @@ export function ChatSidebar({
           >
             <span className="flex min-w-0 max-w-full items-center gap-1">
               <span className="truncate">{modelLabel}</span>
+              {fallbackInfo ? (
+                <span
+                  className="shrink-0"
+                  title={`主模型 ${fallbackInfo.configured} 暂不可用，当前由备用模型 ${fallbackInfo.active} 实际生成回复`}
+                >
+                  ⚡
+                </span>
+              ) : null}
 
               <ChevronDown className="size-3.5 shrink-0 text-text-secondary" />
             </span>

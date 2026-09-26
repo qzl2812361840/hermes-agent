@@ -22,9 +22,12 @@ class RingBuffer:
         self._cap = capacity
         self._buf = bytearray()
         self.truncated = False
+        # ganiu patch (2026-09-25): 最近一次收到 PTY 输出的时刻，用来判断"断开后里面还在干活"。
+        self.last_append_at: float = 0.0
 
     def append(self, data: bytes) -> None:
         self._buf.extend(data)
+        self.last_append_at = time.monotonic()  # ganiu patch: 见 __init__ 注释
         overflow = len(self._buf) - self._cap
         if overflow > 0:
             del self._buf[:overflow]
@@ -217,7 +220,15 @@ class PtySessionRegistry:
         now = time.monotonic() if now is None else now
         doomed = [
             key for key, s in self._sessions.items()
-            if not s.alive or (not s.attached and s.last_detached_at is not None and (now - s.last_detached_at) > self._ttl)
+            if not s.alive or (
+                not s.attached
+                and s.last_detached_at is not None
+                # ganiu patch (2026-09-25): 断开后只要 PTY 还在产出（任务还在跑）就不回收。
+                # 上游只看 last_detached_at：长任务超过 ttl（默认 5 分钟）会被连进程一起杀掉，
+                # 用户回来看到的就是"任务被中断"。取 max(断开时刻, 最近输出时刻)：干活中的 TUI
+                # 一直活着，真正空闲（无输出）满 ttl 才回收——防泄漏这条底线不变。
+                and (now - max(s.last_detached_at, s.buffer.last_append_at)) > self._ttl
+            )
         ]
         for key in doomed:
             # Reaps overlap (attach_or_spawn and the background reaper) and close()

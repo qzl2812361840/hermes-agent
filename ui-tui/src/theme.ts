@@ -99,7 +99,8 @@ const ANSI_NORMALIZED_FOREGROUNDS: readonly (keyof ThemeColors)[] = [
   'tool'
 ]
 
-const ANSI_MUTED_FOREGROUNDS: readonly (keyof ThemeColors)[] = ['muted', 'sessionLabel', 'sessionBorder', 'thinking']
+// thinking 已从 muted 组移出：主人要求思考文字用独立暖黄，不能被压成与正文同调的灰。
+const ANSI_MUTED_FOREGROUNDS: readonly (keyof ThemeColors)[] = ['muted', 'sessionLabel', 'sessionBorder']
 
 function xtermEightBitRgb(colorNumber: number): [number, number, number] {
   if (colorNumber >= 232) {
@@ -299,6 +300,10 @@ export interface ThemeSeeds {
   /** Identity fill override: panel/status surface (derived when omitted). */
   surface?: string
   text: string
+  /** Reasoning/thinking body override (defaults to muted). */
+  thinking?: string
+  /** Tool-call marker override (defaults to accent). */
+  tool?: string
   warn: string
 }
 
@@ -340,8 +345,10 @@ export function buildPalette(seeds: ThemeSeeds, isLight: boolean): ThemeColors {
 
     // Element tokens: independently settable, but default to their semantic
     // parents (tool marker → accent, reasoning body → muted).
-    tool: seeds.accent,
-    thinking: muted,
+    // 2026-09-26 主人要求：TUI 里区分「思考/推理」与「最终回答」的文字颜色——
+    // thinking 走独立暖黄（不再跟随 muted 灰），tool 走独立蓝灰，text 保持回答色。
+    tool: seeds.tool ?? seeds.accent,
+    thinking: seeds.thinking ?? muted,
 
     // Code-syntax tokens default to brand tokens (unchanged highlighting)
     // but are independently skinnable.
@@ -414,6 +421,8 @@ export const LIGHT_SEEDS: ThemeSeeds = {
   statusGood: '#5C7A5C',
   statusWarn: '#6B6B6B',
   text: '#3D2F13',
+  thinking: '#8B6914',
+  tool: '#4A6FA5',
   warn: '#6B6B6B'
 }
 

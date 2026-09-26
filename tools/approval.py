@@ -377,6 +377,30 @@ def load_permanent(patterns: set):
         governing.update(patterns)
 
 
+def _ganiu_authority_grant(choice: str) -> None:
+    """2026-09-26 决策权体系（主人令）：TUI/CLI 审批选到 task/time1h/time5h 档时，
+    落成持久化授权（/opt/hermes/.hermes/ganiu_decision_authority.json），脱离会话仍生效。
+
+    task   → 本任务内你决定（到下一个用户问题/任务完成）
+    time1h → 1 小时内你决定
+    time5h → 5 小时内你决定
+    """
+    import subprocess as _sp
+    scope_map = {"task": ("task", None), "time1h": ("time", "1"), "time5h": ("time", "5")}
+    if choice not in scope_map:
+        return
+    scope, hours = scope_map[choice]
+    cmd = ["ganiu-authority", "grant", scope]
+    if hours:
+        cmd += ["--hours", hours]
+    cmd += ["--note", "TUI审批弹窗选择"]
+    try:
+        _sp.run(cmd, timeout=5, capture_output=True)
+        logger.info("ganiu: 决策权已授予 scope=%s hours=%s", scope, hours)
+    except Exception as e:  # never block approval on this
+        logger.warning("ganiu: 决策权落库失败: %s", e)
+
+
 def _persist_choice(session_key: str, choice: str, warnings: list[tuple]) -> None:
     """Persist a human ``session``/``always`` choice for each ``(key, _, is_tirith)``. Tirith
     findings are session-max by design (no broad permanent allowlisting of content-level
@@ -830,6 +854,11 @@ def _human_decision(spec: _GateSpec, *, command: str, description: str,
                        outcome=outcome, noun=spec.noun, **extra)
 
     def grant(choice: str) -> dict:
+        # 2026-09-26 决策权体系：task/time1h/time5h 档 → 落持久化授权（主人令）
+        if choice in ("task", "time1h", "time5h"):
+            _ganiu_authority_grant(choice)
+            # 内核侧按最接近的原生档生效：task→session，time*→always
+            choice = "session" if choice == "task" else "always"
         # A smart-DENY owner override is always one operation, even if an older client returns "session" or "always".
         if not smart_denied:
             _persist_choice(session_key, choice, warnings)
@@ -869,6 +898,10 @@ def _human_decision(spec: _GateSpec, *, command: str, description: str,
                 "pattern_keys": pattern_keys, "description": display_description,
                 "allow_permanent": permanent_capable and not smart_denied,
                 "allow_session": not smart_denied,
+                # 2026-09-26 决策权体系（主人令）：弹窗给用户六档选择——内核原生四档
+                # （once/session/always/deny）+ 决策权两档（task=本任务、time1h/time5h=限时）
+                "choices": (["once", "deny"] if smart_denied else
+                            ["once", "session", "always", "task", "time1h", "time5h", "deny"]),
             }
             if smart_denied:
                 data["smart_denied"] = True
