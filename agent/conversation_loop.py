@@ -1252,13 +1252,6 @@ def _apply_context_engine_selection(
     exception or invalid return yields ``api_messages`` unchanged; history is never mutated."""
     engine = getattr(agent, "context_compressor", None)
     _ganiu_ovr = _engine_overrides_hook(engine, "select_context")
-    # [ganiu-diag 2026-09-23] 定位「引擎钩子没被调用」；定位完删除
-    try:
-        logger.info("[ganiu-diag] select_context 入口: engine=%s overrides=%s msgs=%s",
-                    type(engine).__name__ if engine is not None else None, _ganiu_ovr,
-                    len(api_messages) if isinstance(api_messages, list) else -1)
-    except Exception:
-        pass
     if not _ganiu_ovr:
         return api_messages
 

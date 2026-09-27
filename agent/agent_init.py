@@ -1889,12 +1889,6 @@ def _select_context_engine(_agent_cfg):
     with suppress(Exception):
         _ctx_cfg = _agent_cfg.get("context", {}) if isinstance(_agent_cfg, dict) else {}
         _engine_name = _ctx_cfg.get("engine", "compressor") or "compressor"
-    # [ganiu-diag 2026-09-23] 定位「context.engine 配置读不到」问题；定位完删除
-    with suppress(Exception):
-        _ra().logger.info("[ganiu-diag] _select_context_engine: cfg_type=%s ctx_section=%r engine=%r",
-                          type(_agent_cfg).__name__,
-                          (_agent_cfg.get("context") if isinstance(_agent_cfg, dict) else None),
-                          _engine_name)
     if _engine_name == "compressor":
         return None  # built-in; don't auto-activate plugins
     _selected_engine = None
