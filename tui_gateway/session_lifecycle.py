@@ -68,14 +68,17 @@ def _lease_metadata(live_session_id: str) -> dict:
 
 
 def _claim_active_session_slot(
-    session_key: str, *, live_session_id: str, surface: str = "tui", profile_home: str | Path | None = None
+    session_key: str, *, live_session_id: str, surface: str = "tui", profile_home: str | Path | None = None,
+    takeover: bool = False,
 ) -> tuple[Any, str | None]:
     try:
         from hermes_cli.active_sessions import try_acquire_active_session
         return try_acquire_active_session(
             session_id=session_key, surface=surface, config=_load_cfg(), registry_home=profile_home,
             metadata=_lease_metadata(live_session_id),
-            track_liveness=str(surface or "").strip().lower() == "desktop")
+            track_liveness=str(surface or "").strip().lower() == "desktop",
+            # ganiu patch (2026-09-29): opt-in seizure of a session another live surface holds.
+            takeover=takeover)
     except Exception as exc:
         logger.warning("Failed to claim active session slot: %s", exc)
         # Fail CLOSED: an errored claim has NOT proven the session unowned; lease-less = silent double-writer hole.
@@ -119,16 +122,91 @@ def _install_borrowed_lease(sid: str, session: dict, frame: dict) -> None:
         surface=str(frame.get("source") or "desktop"), enabled=False)
 
 
-def _ensure_active_session_slot(sid: str, session: dict) -> str | None:
+_TAKEOVER_SURFACES = frozenset({"tui", "desktop"})
+# One-shot session marker: set by a real user submit, consumed by the next slot claim.
+_TAKEOVER_FLAG = "_active_session_takeover_armed"
+
+
+def _request_active_session_takeover(session: dict) -> bool:
+    """Arm this session's next slot claim to take it over from another surface. True when armed.
+
+    ganiu patch (2026-09-29): called from the real user-submit gate ONLY (see
+    ``_session_takeover_requested`` for why synthesized turns must never do this).
+    """
+    if not _session_takeover_requested(session):
+        return False
+    session[_TAKEOVER_FLAG] = True
+    return True
+
+
+def _maybe_request_active_session_takeover(
+    session: dict, *, internal_hosted_submit: bool = False, relay_author=None
+) -> bool:
+    """Arm the next slot claim for a REAL user submit only — the whole gate in one place.
+
+    ganiu patch (2026-09-29). Refused (returns False) when the turn is not this user typing:
+      * ``internal_hosted_submit`` — hosted-room / terminal-callback turns the gateway synthesizes;
+      * ``relay_author`` — a bot-relay stamped author: another person's message (Telegram, Discord,
+        a bot) being delivered into the chat must never seize it from the device that has it open.
+    """
+    if internal_hosted_submit or relay_author is not None:
+        return False
+    return _request_active_session_takeover(session)
+
+
+def _session_takeover_requested(session: dict) -> bool:
+    """ganiu patch (2026-09-29): may THIS submit seize a live lease held by another surface?
+
+    Called ONLY from the real user-submit gate (``prompt.submit``), never from synthesized
+    turns: a session must follow the device the user is actually typing on, but an
+    auto-continue / heartbeat / wake-up / bot-DM turn must never hijack a live chat, and a
+    compute-host child must not steal its own parent runtime's lease.
+
+    Policy default is ON here (``default=True``): a stale lease from a previous client is a
+    lockout, and an operator who wants upstream's strict exclusivity sets
+    ``active_sessions.takeover: false`` or ``HERMES_SESSION_TAKEOVER=0``.
+    """
+    if str(_session_source(session) or "").strip().lower() not in _TAKEOVER_SURFACES:
+        return False
+    with contextlib.suppress(Exception):
+        if _session_uses_compute_host(session):
+            return False
+    with contextlib.suppress(Exception):
+        from hermes_cli.active_sessions import resolve_session_takeover
+        return resolve_session_takeover(_load_cfg(), default=True)
+    return False
+
+
+def _ensure_active_session_slot(sid: str, session: dict, *, takeover: bool = False) -> str | None:
     """Claim this session's cap slot on its first real turn; None when ok. session.create/resume deliberately
     do NOT claim: tile paints, reconnect-resumes and abandoned drafts would hold invisible slots (no DB row)
     that starve the messaging gateway sharing the cap. Anything holding a slot must be user-visible. An
-    inert borrowed token (see _install_borrowed_lease) also lands here: present = slot held upstream."""
-    if session.get("active_session_lease") is not None:
-        return None
+    inert borrowed token (see _install_borrowed_lease) also lands here: present = slot held upstream.
+    ``takeover`` (ganiu patch 2026-09-29, default OFF) is the real-user-submit opt-in that lets the surface
+    the user just typed in become the owner instead of being refused by another window's stale lease. A
+    submit that cannot pass a kwarg (upstream call sites/tests) arms it with
+    ``_request_active_session_takeover`` instead — the flag on the session is the loose-coupled form."""
+    if not takeover:
+        takeover = bool(session.pop(_TAKEOVER_FLAG, False))
+    held = session.get("active_session_lease")
+    if held is not None:
+        # ganiu patch (2026-09-29): another window/device may have taken this session over while this
+        # runtime sat idle. The seizing claimant REPLACES the registry entry, so our own lease_id going
+        # missing is proof. Detection matters even mid-life: without it a displaced runtime would keep
+        # writing turns as a second writer (upstream's correctness guarantee assumes our entry survives).
+        from hermes_cli.active_sessions import active_session_lease_is_registered
+        if active_session_lease_is_registered(held) is False:
+            session.pop("active_session_lease", None)
+            session["_lease_taken_over"] = True
+            logger.info(
+                "Session %s lease %s was taken over by another surface; re-claiming",
+                session.get("session_key"), getattr(held, "lease_id", "?"))
+        else:
+            return None
     key = str(session.get("session_key") or "")
     lease, limit_message = _claim_active_session_slot(
-        key, live_session_id=sid, surface=_session_source(session), profile_home=session.get("profile_home"))
+        key, live_session_id=sid, surface=_session_source(session), profile_home=session.get("profile_home"),
+        takeover=takeover)
     if limit_message is None:
         _attach_lease(session, lease)
         return None

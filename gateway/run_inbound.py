@@ -1331,7 +1331,13 @@ class GatewayInboundMixin:
         # Claim this session before any await: many awaits sit between here and _run_agent
         # registering the real AIAgent; without this sentinel a second message during any of them
         # passes the "already running" guard and spins up a duplicate agent for the same session.
-        _active_session_lease, _limit_message = self._claim_active_session_slot(_quick_key, source)
+        # ganiu patch (2026-09-29): a REAL inbound message (not an internal/background event) may
+        # take the session over from another live surface — the chat follows whoever is typing,
+        # so the phone can take it from the server TUI and vice versa. Internal events keep
+        # upstream's refusal so an automated turn never displaces a person's open chat.
+        _active_session_lease, _limit_message = self._claim_active_session_slot(
+            _quick_key, source, arm_takeover=not is_internal
+        )
         if _limit_message is not None:
             logger.info("Rejecting new active session %s: max_concurrent_sessions reached", _quick_key)
             return _limit_message

@@ -117,6 +117,79 @@ SESSION_COORDINATION_UNAVAILABLE = "SESSION_COORDINATION_UNAVAILABLE"
 PER_SESSION_EXCLUSIVE_SUBMIT = True
 
 
+# ── ganiu patch (2026-09-29): cross-surface session takeover ─────────────────────────────
+# Upstream treats a stored session as strictly single-writer and REFUSES a second live
+# surface ("This chat is open in another Hermes window/terminal"). Correct in the abstract,
+# but in this install it locked the operator out of his OWN session (a stale tui lease from a
+# previous client made every new submit fail). Product policy here: the chat follows whoever
+# is talking — the surface the user just typed in becomes the owner instead of dead-ending.
+#     HERMES_SESSION_TAKEOVER=1|0         (env override, probes/tests/emergency)
+#     active_sessions.takeover: true|false (config.yaml, the operator's choice)
+# Unset ⇒ the calling surface's policy default, which is ON for a real user submit
+# (:func:`resolve_session_takeover` default=True at that call site) so a regenerated config
+# cannot silently bring the lockout back. Interactive surfaces opt in at the call site
+# (tui_gateway/session_lifecycle.py); auto-continue, one-shot CLI (`hermes -z`) and
+# compute-host children NEVER seize a live lease, so a background job can't hijack a chat.
+SESSION_TAKEOVER_ENV = "HERMES_SESSION_TAKEOVER"
+_TAKEOVER_TRUTHY = frozenset({"1", "true", "yes", "on"})
+_TAKEOVER_FALSY = frozenset({"0", "false", "no", "off"})
+
+
+def resolve_session_takeover(config: Any, *, default: bool = False) -> bool:
+    """True when a live interactive surface may SEIZE a session another live surface holds.
+
+    ``default`` is the caller's policy when neither the env override nor the config key says
+    anything: the user-submit gate passes True (the chat follows the typist), every other
+    caller keeps upstream's False.
+    """
+    raw = str(os.environ.get(SESSION_TAKEOVER_ENV, "")).strip().lower()
+    if raw in _TAKEOVER_TRUTHY:
+        return True
+    if raw in _TAKEOVER_FALSY:
+        return False
+    section: Any = None
+    if isinstance(config, dict):
+        section = config.get("active_sessions")
+    elif config is not None:
+        section = getattr(config, "active_sessions", None)
+    value: Any = None
+    if isinstance(section, dict):
+        value = section.get("takeover")
+    elif section is not None:
+        value = getattr(section, "takeover", None)
+    if value is None and isinstance(config, dict):
+        value = config.get("session_takeover")  # legacy alias
+    if value is None:
+        return bool(default)
+    if isinstance(value, str):
+        return value.strip().lower() in _TAKEOVER_TRUTHY
+    return bool(value)
+
+
+def active_session_lease_is_registered(lease: Optional["ActiveSessionLease"]) -> Optional[bool]:
+    """``True``/``False`` for "this lease is still the registered owner"; ``None`` when unprovable.
+
+    A seizing claimant REPLACES the registry entry for that session (never deletes it), so a
+    live surface that lost its slot can prove the swap by its own ``lease_id`` going missing —
+    and then re-claim before writing another turn. ``None`` (registry unreadable, inert lease)
+    means "cannot prove", and callers must keep the lease they have rather than fail open.
+    """
+    if lease is None or not getattr(lease, "enabled", True):
+        return None
+    state_path = getattr(lease, "state_path", None)
+    if state_path is None:
+        try:
+            state_path, _ = _lease_paths(registry_home=None)
+        except Exception:
+            return None
+    try:
+        entries = _read_entries(Path(state_path), strict=True)
+    except Exception:
+        return None
+    want = str(getattr(lease, "lease_id", ""))
+    return any(str(entry.get("lease_id") or "") == want for entry in entries)
+
+
 class ActiveSessionRefusal(str):
     """Refusal message (a ``str``, so callers are untouched) with a machine-readable ``reason``."""
 
@@ -482,6 +555,7 @@ def _lease_entry(
 def try_acquire_active_session(
     *, session_id: str, surface: str, config: Any, metadata: Optional[dict[str, Any]] = None,
     registry_home: str | Path | None = None, track_liveness: bool = False,
+    takeover: bool = False,
 ) -> tuple[Optional[ActiveSessionLease], Optional[str]]:
     """Acquire an active-session slot: ``(lease, None)`` or ``(None, ActiveSessionRefusal)``.
 
@@ -553,6 +627,25 @@ def try_acquire_active_session(
                 if _is_same_writer(existing, metadata):
                     entries[index] = entry
                     _write_entries(state_path, entries)
+                    return lease, None
+                if takeover:
+                    # ganiu patch (2026-09-29): last-writer-wins takeover instead of the refusal
+                    # below. The displaced entry is REPLACED in place (same session key, same
+                    # registry slot) so the previous owner can prove the swap by its lease_id
+                    # going missing and re-claim when the user comes back to that surface.
+                    seized = {k: existing[k] for k in ("lease_id", "pid", "surface", "started_at")
+                              if existing.get(k) is not None}
+                    seized_meta = dict(entry.get("metadata") or {})
+                    seized_meta["taken_over_from"] = seized
+                    entry["metadata"] = _clean_metadata(seized_meta)
+                    entries[index] = entry
+                    _write_entries(state_path, entries)
+                    logger.info(
+                        "Took over active session %s: displaced pid=%s surface=%s (started %s) "
+                        "for pid=%s surface=%s",
+                        key, seized.get("pid"), seized.get("surface"), seized.get("started_at"),
+                        os.getpid(), surface,
+                    )
                     return lease, None
                 return refuse(
                     session_already_owned_message(key, existing), SESSION_NOT_OWNED,

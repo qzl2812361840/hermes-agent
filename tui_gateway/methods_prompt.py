@@ -600,6 +600,12 @@ def _(rid, params: dict) -> dict:
         if internal_hosted_submit else _legacy_group_fence_error(rid, session, params))
     if err is not None:
         return err
+    # ganiu patch (2026-09-29): a real user submit may take the session over from another window /
+    # device (product policy: the chat follows whoever is talking). Hosted/internal submits and
+    # relay-authored turns (another person's message arriving through a bot) are not this user
+    # typing, so they keep upstream's refusal. See session_lifecycle._maybe_request_active_session_takeover.
+    _maybe_request_active_session_takeover(
+        session, internal_hosted_submit=internal_hosted_submit, relay_author=turn_author)
     if (limit_message := _ensure_active_session_slot(sid, session)) is not None:
         # Refused HERE — before the busy queue, db row and agent build — so a refusal
         # leaves the session untouched.  The reason travels as machine-readable data.

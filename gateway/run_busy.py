@@ -213,14 +213,27 @@ class GatewayBusySessionMixin:
         return active_session_limit_message(active_count, max_sessions)
 
     def _claim_active_session_slot(
-        self, session_key: str, source: SessionSource
+        self, session_key: str, source: SessionSource, *, arm_takeover: bool = False
     ) -> tuple[Any, Optional[str]]:
-        """Claim a cross-process active-session slot for a new gateway turn."""
+        """Claim a cross-process active-session slot for a new gateway turn.
+
+        ``arm_takeover`` (ganiu patch 2026-09-29, default OFF) is the inbound-user-message opt-in:
+        the surface the person just typed in becomes the owner instead of being refused by another
+        live surface's lease. Internal events (background-process notifications, wake-ups) pass
+        False, so an automated turn can never displace the chat a person is looking at. The env /
+        config policy (``active_sessions.takeover``) still gates it inside ``try_acquire_active_session``.
+        """
         if self._is_session_running(session_key):
             return None, None
         limit_message = self._active_session_limit_message(session_key)
         if limit_message is not None:
             return None, limit_message
+        if arm_takeover:
+            # Same policy gate the TUI submit uses: env override > config.yaml
+            # ``active_sessions.takeover`` > the caller's default (ON for a real user submit, so a
+            # regenerated config cannot silently bring the lockout back; 0/false still disables it).
+            from hermes_cli.active_sessions import resolve_session_takeover
+            arm_takeover = resolve_session_takeover(getattr(self, "config", None), default=True)
         try:
             from hermes_cli.active_sessions import try_acquire_active_session
             platform = source.platform.value if source and source.platform else "gateway"
@@ -228,6 +241,7 @@ class GatewayBusySessionMixin:
                 session_id=session_key,
                 surface=f"gateway:{platform}",
                 config=getattr(self, "config", None),
+                takeover=arm_takeover,
                 metadata={
                     "platform": platform,
                     "chat_id": getattr(source, "chat_id", "") or "",
