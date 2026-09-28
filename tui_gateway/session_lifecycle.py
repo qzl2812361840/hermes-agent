@@ -399,6 +399,7 @@ def _transfer_active_session_slot(sid: str, session: dict, *, new_session_id: st
     if (old := session.pop("active_session_lease", None)) is not None and (err := _lease_retry(1, old.release)):
         logger.debug("Failed to release stale active session slot", exc_info=err)
     session["active_session_lease"] = new_lease
+    _mark_lease_registered(new_lease)  # ganiu patch: a lease we claimed is one we may re-claim later
     return True
 
 
