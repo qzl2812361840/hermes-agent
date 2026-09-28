@@ -154,9 +154,13 @@ export function ChatSidebar({
     void api
       .getModelInfo(profile)
       .then(r => {
-        // 嘎妞扩展：fallback 时徽章显示实际生效的模型（配置模型保留在 tooltip 里）。
-        const fbActive = !!(r?.fallback_active && r?.active_model)
-        const shown = fbActive ? String(r.active_model) : String(r?.model || '')
+        // 嘎妞扩展：徽章永远优先显示「后台最近一次真实调用用的模型」active_model ——
+        // 由 ganiu-fallback-notice 插件每次调用落盘（{HERMES_HOME}/ganiu_active_model.json）。
+        // 这样 litellm 内部切备用、后台换模型/改默认值都能跟着变，不必等用户 /model。
+        // active_model 不存在（还没调用过 / 超过 15 分钟）才退回配置模型。
+        const live = String(r?.active_model || '').trim()
+        const fbActive = !!(r?.fallback_active && live)
+        const shown = live || String(r?.model || '')
         setFallbackInfo(
           fbActive ? { active: String(r.active_model), configured: String(r?.model || '') } : null
         )
@@ -373,7 +377,9 @@ export function ChatSidebar({
   useEffect(() => {
     refreshEffectiveModel()
     // 嘎妞扩展：fallback 状态随时会变——30 秒轮询刷新模型徽章（本地接口，开销可忽略）。
-    const fallbackPoll = setInterval(refreshEffectiveModel, 10000)
+    // 嘎妞扩展：10 秒 → 3 秒。面板徽章要"跟着后台实时变"，轮询太慢就追不上
+    // litellm 切备用 / 后台换模型；一次 /api/model/info 只是读一个小 JSON，很便宜。
+    const fallbackPoll = setInterval(refreshEffectiveModel, 3000)
     return () => clearInterval(fallbackPoll)
   }, [refreshEffectiveModel, version])
 
