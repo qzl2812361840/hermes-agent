@@ -192,17 +192,20 @@ def _ensure_active_session_slot(sid: str, session: dict, *, takeover: bool = Fal
     if held is not None:
         # ganiu patch (2026-09-29): another window/device may have taken this session over while this
         # runtime sat idle. The seizing claimant REPLACES the registry entry, so our own lease_id going
-        # missing is proof. Detection matters even mid-life: without it a displaced runtime would keep
-        # writing turns as a second writer (upstream's correctness guarantee assumes our entry survives).
+        # missing is proof — but ONLY for a lease this runtime actually registered (``ganiu_registered``,
+        # stamped in ``_attach_lease``). A lease we never registered (a test double, or the inert
+        # ``borrowed:`` token of a resuming device, see ``_install_borrowed_lease``) proves nothing and
+        # keeps upstream's early return: otherwise a plain submit would silently turn a borrow into a
+        # fresh ownership claim and overwrite the token the multi-device flow depends on.
         from hermes_cli.active_sessions import active_session_lease_is_registered
-        if active_session_lease_is_registered(held) is False:
-            session.pop("active_session_lease", None)
-            session["_lease_taken_over"] = True
-            logger.info(
-                "Session %s lease %s was taken over by another surface; re-claiming",
-                session.get("session_key"), getattr(held, "lease_id", "?"))
-        else:
+        if not (getattr(held, "ganiu_registered", False)
+                and active_session_lease_is_registered(held) is False):
             return None
+        session.pop("active_session_lease", None)
+        session["_lease_taken_over"] = True
+        logger.info(
+            "Session %s lease %s was taken over by another surface; re-claiming",
+            session.get("session_key"), getattr(held, "lease_id", "?"))
     key = str(session.get("session_key") or "")
     lease, limit_message = _claim_active_session_slot(
         key, live_session_id=sid, surface=_session_source(session), profile_home=session.get("profile_home"),
@@ -216,8 +219,21 @@ def _ensure_active_session_slot(sid: str, session: dict, *, takeover: bool = Fal
     return limit_message
 
 
+def _mark_lease_registered(lease: Any) -> None:
+    """ganiu patch (2026-09-29): stamp a lease that THIS runtime registered in the shared registry.
+
+    Only stamped leases may be re-claimed after a displacement (see ``_ensure_active_session_slot``):
+    a lease we never registered — a test double, or the inert ``borrowed:`` token of a resuming
+    device (``_install_borrowed_lease``) — must keep upstream's early return, or a plain submit
+    would silently turn a borrow into a fresh ownership claim.
+    """
+    with contextlib.suppress(Exception):
+        setattr(lease, "ganiu_registered", True)
+
+
 def _attach_lease(session: dict, lease) -> None:
     session["active_session_lease"] = lease
+    _mark_lease_registered(lease)
     session.pop("_lease_taken_over", None)  # owning again: its finalize ends the row like any owner
 
 
