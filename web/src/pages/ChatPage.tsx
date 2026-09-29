@@ -91,7 +91,7 @@ import {
   ptyRejectionBanner,
   type PtyBannerAction,
 } from "@/lib/pty-close-copy";
-import { ptyAttachToken } from "@/lib/pty-attach-token";
+import { hasPersistedPtyToken, ptyAttachToken } from "@/lib/pty-attach-token";
 import {
   refitWhenTerminalFontLoads,
   TERMINAL_FONT_FAMILY,
@@ -461,6 +461,24 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       : "/chat?new=1";
   }, [resumeParam, scopedProfile]);
 
+  // 2026-09-30 嘎妞补丁（主人要求：关掉浏览器再打开，像没中断过一样）：
+  // 关掉整个浏览器后重开 /chat 时地址栏没有 ?resume=，于是前端会新起一个
+  // 空 PTY，用户看到空白、以为「任务没在跑」。而服务端的 PTY 是 detach
+  // 保留的（任务照跑），attach 键是 token\0profile\0resume —— 只要带上原来
+  // 那个 resume 目标，就能接回同一个终端（缓冲重放 + 实时续流）。
+  // 触发条件：没有 resume 目标、不是明确要新会话(?new=1)、且本机留过 PTY
+  // 身份（localStorage 持久 token，说明上次有会话可能还活着）→ 自动回到
+  // 最近那个会话。只想开新会话时走侧边栏「对话」入口(?new=1)，不受影响。
+  const autoResumeTriedRef = useRef(false);
+  useEffect(() => {
+    if (autoResumeTriedRef.current) return;
+    if (resumeParam) return;
+    if (searchParams.get("new") === "1") return;
+    if (!hasPersistedPtyToken()) return;
+    autoResumeTriedRef.current = true;
+    void resumeEndedSession();
+  }, [resumeParam, searchParams, resumeEndedSession]);
+
   // 「开始新会话」按钮已按要求从断连覆盖层移除（只保留「恢复此会话」）。
   // 能力本身保留，供其它入口复用；这行只为满足 noUnusedLocals。
   void startFreshPty;
@@ -723,57 +741,63 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     // ── Image paste / drop ───────────────────────────────────────────────
     // The Chat tab is an xterm mirror of a TUI inside the gateway. Server-side
     // clipboard.paste / xclip never see the browser clipboard, so image paste
-    // must upload browser bytes to HERMES_HOME/images, then drive `/image`
-    // over the PTY (same burst-then-Return timing as handleCopyLast).
+    // must upload browser bytes to HERMES_HOME/images, then hand the resulting
+    // path to the TUI as a bracketed paste — the same channel a terminal
+    // drag-and-drop uses, so the TUI attaches it inline as `[[ Image N ]]`.
     let imageUploadDisposed = false;
-    // 远端浏览器（手机走公网）上 `/image` 的往返可能远超 100ms：固定延时会让回车落在
-    // 空输入框上被内核吞掉 —— 图片只挂在输入框里发不出去，越点越堆。改成「看着输出流
-    // 等 token 真正落进输入框」，再回车提交，并留一次兜底回车。
+    // 远端浏览器（手机走公网）上一次 attach 的往返可能远超 100ms，所以挂完一张要等
+    // 输出流里真的出现 `[[ Image N ]]` 记号再挂下一张，避免手机端连点堆图。
     let ptyTail = "";
-    const IMAGE_TOKEN_RE = /\[\[\s*Image\s*\d+\s*\]\]/;
+    // TUI 的附件记号是 `[[ Image N ]]`（ui-tui/src/domain/attachments.ts:15 imageToken()，
+    // 在输入行里就是普通文本）。旧的 `📎` 徽章属于上一代 CLI TUI，在 Ink TUI 里
+    // 永远匹配不到 —— 那个等待循环于是白等 2 秒（2026-09-30 查实）。
+    const IMAGE_BADGE_RE = /\[\[\s*Image\s*\d+\s*\]\]/;
     const sleepMs = (ms: number) =>
       new Promise<void>((resolve) => window.setTimeout(resolve, ms));
-    const waitForImageToken = async (timeoutMs: number) => {
+    const waitForImageBadge = async (timeoutMs: number) => {
       const deadline = Date.now() + timeoutMs;
       while (Date.now() < deadline) {
-        if (IMAGE_TOKEN_RE.test(ptyTail)) return true;
+        if (IMAGE_BADGE_RE.test(ptyTail)) return true;
         await sleepMs(60);
       }
       return false;
     };
-    const submitComposerAfterAttach = async () => {
-      for (let attempt = 0; attempt < 3; attempt++) {
-        const s = wsRef.current;
-        if (!s || s.readyState !== WebSocket.OPEN) return;
-        s.send("\r");
-        await sleepMs(700);
-        // 窗口里还挂着 token = 这一脚没落上；空回车会被内核忽略，多发一次无害。
-        if (!IMAGE_TOKEN_RE.test(ptyTail.slice(-600))) return;
-      }
-    };
+    // 挂图走「bracketed paste 一个文件路径」：TUI 认这是拖进来的文件，自己调
+    // image.attach 并在光标处插入 [[ Image N ]] 记号，输入行不会残留任何命令文本
+    // （ui-tui/src/app/useComposerState.ts:243 looksLikeDroppedPath → attachImageToken）。
+    //
+    // 别再改回「打 /image <路径> + 回车」：那样跑完输入行里会留着 `/image <路径>`
+    // （TUI 不替我们清；下一次回车还会被当斜杠命令重跑一遍、把用户打的字吞成参数），
+    // 而要清掉它只能靠 Ctrl+U(kill-line) —— kill-line 会把 `[[ Image N ]]` 记号一起删掉，
+    // 记号一没，TUI 立即 image.detach，图就永远发不出去（2026-09-30 真 PTY 复现：
+    // paste 路径 → 输入行 = [[ Image 1 ]]；再发 Ctrl+U → 记号消失；
+    // 打一句话回车 → 消息里根本没有图）。
     const pasteDelay = () => sleepMs(40);
+    const driveImageAttach = async (paths: string[]) => {
+      const ws = wsRef.current;
+      const warnDisconnected = () =>
+        setBanner("图片已上传，但聊天连接断开了，请重连后再发一次。");
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        warnDisconnected();
+        return;
+      }
+      for (const path of paths) {
+        if (imageUploadDisposed) return;
+        if (ws.readyState !== WebSocket.OPEN) {
+          warnDisconnected();
+          return;
+        }
+        ptyTail = ""; // 只看这一张图之后的输出，上一张的记号不会误判成本张已挂上
+        ws.send(`\x1b[200~${path}\x1b[201~`); // bracketed paste 路径 = TUI 的拖拽通道
+        await waitForImageBadge(2000); // 等记号真落进输入行，再放下一张
+        await pasteDelay();
+      }
+      term.focus();
+    };
     const reportImageUploadError = (err: unknown) => {
       const message = err instanceof Error ? err.message : String(err);
       console.warn("[dashboard chat] image upload failed:", message);
       setBanner(`图片上传失败：${message}`);
-    };
-    const driveImageAttach = async (paths: string[]) => {
-      for (const path of paths) {
-        if (imageUploadDisposed) return;
-        const ws = wsRef.current;
-        if (!ws || ws.readyState !== WebSocket.OPEN) {
-          setBanner("图片已上传，但聊天连接断开了，请重连后再发一次。");
-          return;
-        }
-        ptyTail = ""; // 只看这次以后的输出，历史里的同款 token 不会误判
-        ws.send(`/image ${path}`);
-        // 快网 100ms 就回来了，手机公网可能一两秒 —— 等到真正的 token 再提交；
-        // 万一这个流的 token 没被识别到，下面的兜底回车也会把图发出去。
-        await waitForImageToken(2500);
-        await pasteDelay();
-      }
-      await submitComposerAfterAttach();
-      term.focus();
     };
     const uploadAndAttachImages = (files: File[]) => {
       if (!files.length) return;

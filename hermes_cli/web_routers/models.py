@@ -87,10 +87,15 @@ def _bounded_context_length_probe(model: str, base_url: str, provider: str) -> i
 
 
 @router.get("/api/model/info")
-def get_model_info(profile: Optional[str] = None):
+def get_model_info(profile: Optional[str] = None, session_id: Optional[str] = None):
     """Resolved metadata for the configured model: auto-detected vs configured
     context length (so the UI can show "Auto-detected: 200K" beside the
-    override) plus models.dev capabilities when available."""
+    override) plus models.dev capabilities when available.
+
+    ``session_id``（嘎妞扩展）: 徽章要显示「本会话」真正在用的模型，旧版读全局状态
+    文件，任何会话（TUI/后台/别的窗口）调用一次就会把它覆盖 —— 于是本会话换了模型、
+    徽章却还显示「原来的模型名」。传入 session_id 后按会话取，互不串台。
+    """
     try:
         model_cfg = _load_config_scoped(profile).get("model", "")
         model_name, provider = _main_model_fields(model_cfg)
@@ -119,17 +124,37 @@ def get_model_info(profile: Optional[str] = None):
         except Exception:
             pass
 
-        # 嘎妞扩展（配套 ganiu-fallback-notice 插件）：fallback 发生时把「实际模型」
-        # 一并返回，供 TUI 模型徽章展示实际生效的模型（15 分钟内有效）。
+        # 嘎妞扩展（配套 ganiu-fallback-notice 插件 + litellm 探针）：
+        # 1) 只认「本会话」最近一次真实调用（session_id 匹配），避免多会话互相串台
+        #    ——旧版读全局文件，谁最后调用就显示谁的模型，别的会话模型切换后徽章不动。
+        # 2) 一并给出「真实后端」（litellm 当次调用命中的 api_base 主机，来自
+        #    ganiu-litellm-tap 探针），这样 litellm 内部切备用通道时面板能实时看到。
+        # 3) 没传 session_id（老前端）时退回全局最近一次，保持兼容。
+        # 4) 新字段 actual_backend / actual_backend_host：给前端展示「真实后端主机」
         fb: dict = {}
         try:
             import json as _json, time as _time, os as _os
-            _p = _os.path.join(_os.environ.get("HERMES_HOME") or _os.path.expanduser("~/.hermes"),
-                               "ganiu_active_model.json")
+            _home = _os.environ.get("HERMES_HOME") or _os.path.expanduser("~/.hermes")
+            _p = _os.path.join(_home, "ganiu_active_model.json")
             with open(_p, "r", encoding="utf-8") as _f:
                 _d = _json.load(_f)
-            if _time.time() - float(_d.get("at") or 0) <= 900:
-                fb = {"active_model": _d.get("actual_model") or "", "fallback_active": bool(_d.get("fallback"))}
+            _sessions = _d.get("sessions") if isinstance(_d.get("sessions"), dict) else None
+            _ent = _d
+            if session_id and _sessions:
+                _ent = _sessions.get(session_id) or {}
+            # 配置里的模型和"最近一次真实调用请求的模型"不一致 = 用户刚 /model 换了模型、还没发消息。
+            # 这时徽章必须跟着配置走（和下面的模型选择器/会话状态一致），否则面板会停在旧模型名上
+            # ——主人 2026-09-29 报的就是这个："模型切换了，面板里显示的依然是原来的模型名称"。
+            _req = str(_ent.get("request_model") or "")
+            _just_switched = bool(_req) and _req != str(model_name or "")
+            if _ent and not _just_switched and _time.time() - float(_ent.get("at") or 0) <= 900:
+                fb = {
+                    "active_model": _ent.get("actual_model") or "",
+                    "fallback_active": bool(_ent.get("fallback")),
+                    "active_backend": _ent.get("actual_backend") or "",
+                    "active_backend_host": _ent.get("actual_backend_host") or "",
+                    "model_at": float(_ent.get("at") or 0),
+                }
         except Exception:
             fb = {}
 
