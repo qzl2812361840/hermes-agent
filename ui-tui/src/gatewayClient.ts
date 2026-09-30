@@ -145,6 +145,14 @@ export class GatewayClient extends EventEmitter {
     unrefTimers: true
   })
   private bufferedEvents = new CircularBuffer<AnyGatewayEvent>(MAX_BUFFERED_EVENTS)
+  // Seq-replay state (mirrors apps/shared json-rpc-gateway): last observed event
+  // seq per session_id drives the lossless reconnect replay; a replay in flight
+  // parks live frames so a racing frame is neither dispatched twice nor allowed
+  // to advance the watermark past the gap the replay still has to deliver.
+  private lastSeenSeq = new Map<string, number>()
+  private replayHold: Map<string, AnyGatewayEvent[]> | null = null
+  private replayGeneration = 0
+  private replayScheduled = false
   // Server→client requests (clarify, approval, sudo, …) follow the same
   // mount-order contract as events: an attached session mid-turn can send one
   // the instant the socket opens, before the Ink handler is registered.
@@ -181,6 +189,10 @@ export class GatewayClient extends EventEmitter {
 
   private publish(ev: AnyGatewayEvent) {
     if (ev.type === 'gateway.ready') {
+      // Both spawn and attach modes emit gateway.ready per connection (heartbeat
+      // pings reuse it). First one is the mount race, later ones are reconnects —
+      // the right hook to replay what the previous socket missed (no-op first time).
+      this.maybeScheduleReplay()
       this.ready = true
       this.clearReconnect()
       this.reconnectAttempts = 0
@@ -195,11 +207,159 @@ export class GatewayClient extends EventEmitter {
       }
     }
 
+    const sid = ev.session_id
+    const seq = ev.seq
+
+    if (this.replayHold && sid && typeof seq === 'number' && this.replayHold.has(sid)) {
+      // Replay in flight for this session: park the live frame; flushReplayHold
+      // dispatches it after the replayed gap, gated on seq.
+      this.replayHold.get(sid)!.push(ev)
+
+      return
+    }
+
+    this.recordSeq(ev)
+
     if (this.subscribed) {
       return void this.emit('event', ev)
     }
 
     this.bufferedEvents.push(ev)
+  }
+
+  private recordSeq(ev: AnyGatewayEvent) {
+    const sid = ev.session_id
+    const seq = ev.seq
+
+    if (sid && typeof seq === 'number') {
+      const prev = this.lastSeenSeq.get(sid) ?? 0
+
+      if (seq > prev) {
+        this.lastSeenSeq.set(sid, seq)
+      }
+    }
+  }
+
+  /**
+   * Fired on every gateway.ready (each WS connection emits one). The first
+   * connection replays from 0 — the backend's ring only carries events from
+   * this process's lifetime, so an empty gap is the common case and the RPC
+   * costs one round trip. Later connections replay from the recorded
+   * watermarks; an epoch change resets them (seq counters are in-process).
+   */
+  private maybeScheduleReplay() {
+    if (this.replayScheduled || this.disposed || this.lastSeenSeq.size === 0) {
+      return
+    }
+
+    this.replayScheduled = true
+    const generation = ++this.replayGeneration
+
+    // Next microtask: let the ready frame itself (and anything that raced it)
+    // flow through publish() and land in the buffer before the replay RPC.
+    queueMicrotask(() => {
+      if (this.replayGeneration !== generation) {
+        return
+      }
+
+      this.replayScheduled = false
+
+      if (this.disposed) {
+        return
+      }
+
+      void this.fetchReplay(generation)
+    })
+  }
+
+  private async fetchReplay(generation: number): Promise<void> {
+    const entries = [...this.lastSeenSeq.entries()]
+
+    for (const [sid, lastSeen] of entries) {
+      if (this.replayGeneration !== generation) {
+        return
+      }
+
+      try {
+        const result = await this.request<{
+          events?: Array<{ type: string; session_id?: string; seq?: number }>
+          epoch?: string
+          truncated?: boolean
+        }>('session.events.since', { session_id: sid, last_seen: lastSeen })
+
+        if (this.replayGeneration !== generation) {
+          return
+        }
+
+        if (result?.truncated) {
+          // Ring evicted frames below our watermark: a seq-gated replay would
+          // silently drop the missing middle. Reset to 0 — this connection's
+          // history refetch (session.info / transcript) is the source of truth.
+          this.lastSeenSeq.set(sid, 0)
+
+          continue
+        }
+
+        const replayed = Array.isArray(result?.events) ? result.events : []
+
+        if (replayed.length > 0) {
+          this.replayHold = this.replayHold ?? new Map()
+          this.replayHold.set(sid, [])
+
+          for (const frame of replayed) {
+            const seq = frame.seq
+
+            // Seq-gate against the watermark: dedupes a frame that raced the
+            // replay fetch (already recorded live) and any out-of-order gaps.
+            if (typeof seq !== 'number' || seq <= (this.lastSeenSeq.get(sid) ?? 0)) {
+              continue
+            }
+
+            this.recordSeq(frame as AnyGatewayEvent)
+            this.dispatchReplayed(frame as AnyGatewayEvent)
+          }
+
+          this.flushReplayHold(sid)
+
+          this.pushLog(`[replay] session ${sid}: delivered ${replayed.length} missed events`)
+        }
+      } catch {
+        // Replay is best-effort; the reconnect path already surfaced the drop.
+      }
+    }
+  }
+
+  private dispatchReplayed(ev: AnyGatewayEvent) {
+    if (this.subscribed) {
+      this.emit('event', ev)
+    } else {
+      this.bufferedEvents.push(ev)
+    }
+  }
+
+  /** Deliver live frames parked while this session's replay was in flight. */
+  private flushReplayHold(sid: string) {
+    const parked = this.replayHold?.get(sid)
+
+    this.replayHold?.delete(sid)
+
+    if (this.replayHold && this.replayHold.size === 0) {
+      this.replayHold = null
+    }
+
+    if (!parked) {
+      return
+    }
+
+    for (const ev of parked) {
+      this.recordSeq(ev)
+
+      if (this.subscribed) {
+        this.emit('event', ev)
+      } else {
+        this.bufferedEvents.push(ev)
+      }
+    }
   }
 
   private clearReadyTimer() {
@@ -816,6 +976,9 @@ export class GatewayClient extends EventEmitter {
     this.closeGatewaySocket()
     this.closeSidecarSocket()
     this.clearReadyTimer()
+    this.replayGeneration++
+    this.replayHold = null
+    this.replayScheduled = false
     // The ws 'close' handler is identity-gated on `this.ws === ws`
     // and we just nulled `this.ws`, so it will short-circuit and
     // skip handleTransportExit. Reject pending RPCs explicitly so
