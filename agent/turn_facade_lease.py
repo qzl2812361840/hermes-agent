@@ -10,8 +10,10 @@ bodies run on per-handle workers), not per-turn threads.
 import logging
 import os
 import threading
+import time
 from contextlib import nullcontext
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 # Same logger name as the origin module so log records / caplog filters are unchanged.
@@ -263,10 +265,38 @@ def admit_durable_turn_lease(
         f"pid={os.getpid()}:turn={relay_turn_id}:platform={task_context['platform'] or 'unknown'}"
     )
     waited = False
+    _t0 = time.monotonic()
+    _yield_asked = False
+
+    def _request_holder_yield(sid: str) -> None:
+        """Ask the external background resumer holding this session to stand down."""
+        try:
+            d = Path("/d/ganiu-tasks/resume")
+            d.mkdir(parents=True, exist_ok=True)
+            (d / f"yield_{sid}.req").write_text(str(time.time()), encoding="utf-8")
+            logger.info("ganiu resume handoff request written for session %s", sid)
+            try:  # 留痕：谁在等锁、什么时候请求让位（看护者日志同一文件）
+                with open("/var/log/ganiu-resume.log", "a", encoding="utf-8") as fh:
+                    fh.write(
+                        f"{time.strftime('%Y-%m-%d %H:%M:%S')} "
+                        f"core: 本会话有新的回合在等锁 → 已写让位请求 yield_{sid}.req\n"
+                    )
+            except Exception:
+                pass
+        except Exception:
+            pass
 
     def _on_wait(elapsed: float) -> None:
-        nonlocal waited
+        nonlocal waited, _yield_asked
         waited = True
+        # ganiu yield-on-first-wait: 用户界面在等锁 → 立刻请后台续跑让位，别让主人干等
+        if not _yield_asked and not os.environ.get("GANIU_CONTINUATION"):
+            _yield_asked = True
+            _request_holder_yield(session_id)
+            try:
+                agent._emit_status("⏳ 有后台续跑占着这个会话，正在请它让位（你的消息不会丢）…")
+            except Exception:
+                pass
         agent._emit_status(
             "⏳ Another Hermes process is using this session; "
             "waiting for it to finish before starting your turn..."
@@ -274,12 +304,37 @@ def admit_durable_turn_lease(
             f"⏳ Still waiting for the other Hermes process on this session ({int(elapsed)}s)..."
         )
 
+    def _should_abort() -> bool:
+        nonlocal _yield_asked
+        if not getattr(agent, "_interrupt_requested", False):
+            return False
+        hard_event = getattr(agent, "_hard_interrupt_requested", None)
+        if hard_event is not None and callable(getattr(hard_event, "is_set", None)) and hard_event.is_set():
+            return True  # 明确的 /stop：照旧放弃
+        if time.monotonic() - _t0 >= 120.0:
+            return True  # 让位宽限期 120 秒过后：照旧如实报错
+        if not _yield_asked:
+            _yield_asked = True
+            _request_holder_yield(session_id)
+            try:
+                agent._emit_status("⏳ 正在请占用本会话的后台续跑进程让位，稍候（你的消息不会被丢掉）…")
+            except Exception:
+                pass
+        return False
+
     if not db.acquire_session_turn_lease(
         session_id, holder, ttl_seconds=LEASE_TTL_SECONDS, wait_seconds=LEASE_WAIT_SECONDS,
-        on_wait=_on_wait, should_abort=lambda: getattr(agent, "_interrupt_requested", False),
+        on_wait=_on_wait, should_abort=_should_abort,
     ):
         admission.early_result = _lease_not_acquired_result(agent, session_id, conversation_history)
         return admission
+
+    # 抢先让位后成功拿到锁：清理中断标记，让后续的用户提示正常跑
+    if _yield_asked:
+        try:
+            agent.clear_interrupt()
+        except Exception:
+            pass
 
     # Assign only after admission so the finally cannot release a holder that never owned the
     # row; persist paths read the agent attr so a late flush is fenced in the same transaction.

@@ -82,7 +82,11 @@ _PTY_IDLE_BACKOFF = 0.05
 PTY_REGISTRY = PtySessionRegistry(
     ttl=float(os.environ.get("HERMES_PTY_TTL_SECONDS", 5 * 60)),
     max_sessions=int(os.environ.get("HERMES_PTY_MAX_SESSIONS", 6)),
-    buffer_cap=1 * 1024 * 1024, read_timeout=_PTY_READ_CHUNK_TIMEOUT)
+    # 2026-09-30 嘎妞补丁：重连回放缓冲 1MiB → 8MiB（可用 HERMES_PTY_BUFFER_BYTES 调）。
+    # 主人要求「断开跟没断过一样：没显示的全补回来」—— 1MiB ≈ 1 万行，长任务刷屏会
+    # 在重连时被截断；8MiB 上限内的内存成本有界（最多 max_sessions 份）。
+    buffer_cap=int(os.environ.get("HERMES_PTY_BUFFER_BYTES", 8 * 1024 * 1024)),
+    read_timeout=_PTY_READ_CHUNK_TIMEOUT)
 
 
 async def _close_stalled_pty_input(ws: "WebSocket", *, path: str) -> None:
