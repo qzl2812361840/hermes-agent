@@ -241,6 +241,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptRef = useRef(0);
   const forceFreshPtyRef = useRef(false);
+  // 2026-09-30 嘎妞补丁（回归修复）：用户明确要「新对话」时记一笔，自动恢复会话
+  // 逻辑必须彻底让路——此前点侧边栏「对话」会被 ?new=1 的效果改写回 /chat，
+  // 紧接着自动恢复又跑起来，把用户拽回「最近那条约会」（主人报的「连接的常用对话」）。
+  const freshChatRequestedRef = useRef(false);
   // Tracks the resume target of the currently connected PTY. When ``resumeParam``
   // changes to a different value at runtime (user picked a different history
   // session in the sidebar), the old attach token would let the server hand back
@@ -311,6 +315,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     const next = new URLSearchParams(searchParams);
 
     next.delete("resume");
+    freshChatRequestedRef.current = true;
     forceFreshPtyRef.current = true;
     reconnectAttemptRef.current = 0;
     clearReconnectTimer();
@@ -332,6 +337,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     const next = new URLSearchParams(searchParams);
     next.delete("new");
     next.delete("resume");
+    // 明确要新对话：让自动恢复会话逻辑彻底让路（见 freshChatRequestedRef 注释）
+    freshChatRequestedRef.current = true;
     // 双保险 ①：换 attach token + fresh=1 → 让服务端另开一个 PTY
     //（配合 display.tui_auto_resume_recent=false，新 PTY 会 forge 一个全新会话）
     forceFreshPtyRef.current = true;
@@ -456,11 +463,14 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         /* best-effort: fall through to a fresh chat below */
       }
     }
+    if (window.location.pathname !== "/chat") {
+      // 用户已经离开聊天页（点了会话/对话/别的导航）——不要用整页跳转把他拽回来。
+      return;
+    }
     window.location.href = target
       ? `/chat?resume=${encodeURIComponent(target)}`
       : "/chat?new=1";
   }, [resumeParam, scopedProfile]);
-
   // 2026-09-30 嘎妞补丁（主人要求：关掉浏览器再打开，像没中断过一样）：
   // 关掉整个浏览器后重开 /chat 时地址栏没有 ?resume=，于是前端会新起一个
   // 空 PTY，用户看到空白、以为「任务没在跑」。而服务端的 PTY 是 detach
@@ -472,11 +482,22 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const autoResumeTriedRef = useRef(false);
   useEffect(() => {
     if (autoResumeTriedRef.current) return;
+    // 用户本条命里已经明确点了「新对话」/「新建会话」（含 ?new=1 被消费掉之后
+    // 的一次重渲染）——这时绝不能再去自动接回旧会话。
+    if (freshChatRequestedRef.current) return;
     if (resumeParam) return;
     if (searchParams.get("new") === "1") return;
     if (!hasPersistedPtyToken()) return;
     autoResumeTriedRef.current = true;
-    void resumeEndedSession();
+    void (async () => {
+      // 2026-09-30 嘎妞补丁（回归修复 ②）：resumeEndedSession 里查会话列表是异步的，
+      // 用户完全可能在这几百毫秒里点了侧边栏「会话 / 对话」。离开聊天页就别再抢跳，
+      // 否则一次 window.location.href 会把浏览器从 /sessions 硬拽回 /chat —— 表现
+      // 就是「点会话进去不是会话」。跳转前再确认一次仍在 /chat 且身份还在。
+      if (window.location.pathname !== "/chat") return;
+      if (!hasPersistedPtyToken()) return;
+      await resumeEndedSession();
+    })();
   }, [resumeParam, searchParams, resumeEndedSession]);
 
   // 「开始新会话」按钮已按要求从断连覆盖层移除（只保留「恢复此会话」）。
