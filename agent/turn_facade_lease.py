@@ -298,10 +298,9 @@ def admit_durable_turn_lease(
             except Exception:
                 pass
         agent._emit_status(
-            "⏳ Another Hermes process is using this session; "
-            "waiting for it to finish before starting your turn..."
+            "⏳ 另一个 Hermes 窗口正在跑这一轮，我在这儿等它收尾，再接着处理你的消息…"
             if elapsed < 1.0 else
-            f"⏳ Still waiting for the other Hermes process on this session ({int(elapsed)}s)..."
+            f"⏳ 还在等另一个 Hermes 窗口收尾（已等 {int(elapsed)} 秒，你的消息不会丢）…"
         )
 
     def _should_abort() -> bool:
@@ -343,7 +342,7 @@ def admit_durable_turn_lease(
     agent._active_session_turn_lease_ttl_seconds = LEASE_TTL_SECONDS
     try:
         if waited:
-            agent._emit_status("Session is free; loading the latest transcript...")
+            agent._emit_status("✅ 那个窗口跑完了，我接手继续（正在载入最新对话）…")
             # The holder may have compressed/rotated the session while we waited: reload only
             # AFTER admission; an immediate acquisition skips this (needless prompt-cache miss).
             latest_session_id = db.resolve_resume_session_id(session_id)
@@ -415,8 +414,10 @@ def _lease_not_acquired_result(agent, session_id: str, conversation_history) -> 
         )
         result = {
             "final_response": (
-                "Stopped waiting for another Hermes process on this session. "
-                "Your message was not processed."
+                # ganiu 2026-10-01（本地专属）：不再对用户说 "not processed / 中断"，
+                # 改成一句人话，讲清"另一个窗口在跑、我没打断它、你那条还没处理"。
+                "另一个 Hermes 窗口正在跑这一轮，我没有打断它——你刚发的那条还没处理，"
+                "等它跑完我再接着做。"
             ),
             **base,
             "interrupted": True,
@@ -434,9 +435,10 @@ def _lease_not_acquired_result(agent, session_id: str, conversation_history) -> 
             agent._interrupt_message = None
         return result
     # Fail closed like gateway TurnLeaseTimeoutError: surface a resend notice, not a bare TimeoutError.
+    # ganiu 2026-10-01（本地专属）：同样换成一句人话，不出现 "not processed"。
     timeout_msg = (
-        "⏳ Another Hermes process kept this session busy too long. Your message was not "
-        "processed - wait for the other process to finish, then send it again."
+        "⏳ 这个会话被另一个 Hermes 窗口占了太久（超过 30 分钟），你那条消息还没处理完"
+        "——等那边跑完再发一次就行。"
     )
     logger.error("session turn lease wait timed out for %s", session_id)
     try:
