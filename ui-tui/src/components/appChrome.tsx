@@ -620,13 +620,30 @@ export function StatusRule({
       : ''
 
   const showBar = !!bar && fits(SEP + stringWidth(`[${bar}] ${pct != null ? `${contextMark}${pct}%` : ''}`))
-  const showDuration = segs.duration && ok('duration') && !!sessionStartedAt && fits(SEP + MAX_DURATION_WIDTH)
+  // Session-duration clock — DISABLED (GaNiu 2026-10-01 主人令："只在做任务的时候计时，
+  // 空闲就不要计时了"). It counted up from session start and ticked once per second even while
+  // the session was completely idle, so the bottom bar always had a moving number and the user
+  // could not tell a live turn from an idle session. The busy FaceTicker (spinner + elapsed) is
+  // now the ONLY place time moves, and it moves only while a turn is actually running.
+  const SHOW_SESSION_DURATION = false
+  const showDuration =
+    SHOW_SESSION_DURATION && segs.duration && ok('duration') && !!sessionStartedAt && fits(SEP + MAX_DURATION_WIDTH)
 
-  // Idle clock — time since the last final agent response. Hidden while busy
-  // (the FaceTicker's elapsed tail covers the live turn) and before the first
-  // turn completes. Shares the duration breakpoint and width reservation.
+  // Idle clock — DISABLED (GaNiu 2026-10-01). It rendered "✓ <time since the last
+  // final agent response>" and ticked once per second while the session was doing
+  // NOTHING, which is indistinguishable at a glance from a live turn ticking: users
+  // read the moving clock as "something is running in the background". Liveness is
+  // already carried unambiguously by the busy FaceTicker below (spinner + elapsed),
+  // which is the ONLY place elapsed time should move. Kept the arithmetic behind a
+  // constant so re-enabling is a one-line change and the width reservation below
+  // stays honest.
+  const SHOW_IDLE_CLOCK = false
   const showIdle =
-    segs.duration && !busy && lastTurnEndedAt != null && fits(SEP + stringWidth('✓ ') + MAX_DURATION_WIDTH)
+    SHOW_IDLE_CLOCK &&
+    segs.duration &&
+    !busy &&
+    lastTurnEndedAt != null &&
+    fits(SEP + stringWidth('✓ ') + MAX_DURATION_WIDTH)
 
   const showCompressions =
     segs.compressions && ok('compressions') && compressions > 0 && fits(SEP + stringWidth(`cmp ${compressions}`))
