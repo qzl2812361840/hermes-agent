@@ -444,6 +444,30 @@ async def pty_ws(ws: WebSocket) -> None:
         return
     peer, mode, cred = gate
     await ws.accept()
+    # 2026-10-01 嘎妞补丁：PTY WebSocket 也连接后端 /ws/{user_id} 接收 task_done 推送
+    user_identity = getattr(ws, "_hermes_auth_identity", None)
+    backend_ws = None
+    if user_identity and isinstance(user_identity, dict):
+        user_id = user_identity.get("user_id")
+        if user_id is not None:
+            try:
+                import websockets
+                backend_url = f"ws://127.0.0.1:8000/ws/{user_id}"
+                backend_ws = await websockets.connect(backend_url)
+                async def _forward_task_done():
+                    try:
+                        async for msg in backend_ws:
+                            if isinstance(msg, str):
+                                import json
+                                msg = json.loads(msg)
+                            if isinstance(msg, dict) and msg.get("type") == "task_done":
+                                await ws.send_json(msg)
+                    except Exception:
+                        pass
+                import asyncio
+                asyncio.create_task(_forward_task_done())
+            except Exception as e:
+                _log.warning(f"连接后端 WS 失败: {e}")
     _log.info("pty accepted peer=%s mode=%s cred=%s", peer, mode, cred)
     # 2026-09-23 嘎妞补丁：记下开始时间，断开时打一行「活了多久 + 关闭码」——
     # 这样"前端每半分钟重连一次"下次发生就能直接看出是谁断的、断多快。

@@ -80,7 +80,10 @@ _PTY_IDLE_BACKOFF = 0.05
 # 背景：客户端断开时服务端可能看不到（caddy 中转），attached 会一直是 True，
 # 于是只能靠 ttl 兜底——30 分钟太长，每个僵尸约 600MB。
 PTY_REGISTRY = PtySessionRegistry(
-    ttl=float(os.environ.get("HERMES_PTY_TTL_SECONDS", 5 * 60)),
+    # 2026-10-01 主人口令：关掉浏览器不等断会话 —— TTL 5 分钟 → 2 小时（默认值；env 可调）。
+    # 配合已有的「干活中不回收」（reap_idle 取 max(断开时刻, 最近输出时刻)），
+    # 浏览器关掉后 PTY 与里面的任务一直活着，直到任务跑完再算空闲。
+    ttl=float(os.environ.get("HERMES_PTY_TTL_SECONDS", 2 * 3600)),
     max_sessions=int(os.environ.get("HERMES_PTY_MAX_SESSIONS", 6)),
     # 2026-09-30 嘎妞补丁：重连回放缓冲 1MiB → 8MiB（可用 HERMES_PTY_BUFFER_BYTES 调）。
     # 主人要求「断开跟没断过一样：没显示的全补回来」—— 1MiB ≈ 1 万行，长任务刷屏会
