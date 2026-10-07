@@ -16,6 +16,8 @@
  *     POSIX PTY → `node ui-tui/dist/entry.js` → tui_gateway + AIAgent     .
  */
 
+const CURRENT_SESSION_KEY = "hermes.current.session";
+
 import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebLinksAddon } from "@xterm/addon-web-links";
@@ -315,6 +317,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     const next = new URLSearchParams(searchParams);
 
     next.delete("resume");
+    // 2026-10-07 修复：开始新会话前清理旧 session_id
+    localStorage.removeItem(CURRENT_SESSION_KEY);
     freshChatRequestedRef.current = true;
     forceFreshPtyRef.current = true;
     reconnectAttemptRef.current = 0;
@@ -488,6 +492,18 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     if (resumeParam) return;
     if (searchParams.get("new") === "1") return;
     if (!hasPersistedPtyToken()) return;
+    
+    // 2026-10-07 修复：新建会话优先读 localStorage 的 session_id
+    const savedSession = localStorage.getItem(CURRENT_SESSION_KEY);
+    if (savedSession) {
+      // 直接跳到保存的会话，不走自动恢复查找
+      const next = new URLSearchParams(searchParams);
+      next.set("resume", savedSession);
+      setSearchParams(next, { replace: true });
+      autoResumeTriedRef.current = true;
+      return;
+    }
+    
     autoResumeTriedRef.current = true;
     void (async () => {
       // 2026-09-30 嘎妞补丁（回归修复 ②）：resumeEndedSession 里查会话列表是异步的，
@@ -1569,6 +1585,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         const resumeId = parseResumeControlMessage(ev.data);
         if (resumeId) {
           effectiveResume = resumeId;
+          // 2026-10-07 修复：新建会话刷新后跳回旧会话 —— 只有是强制新开的才存进 localStorage
+          if (forceFreshPtyRef.current) {
+            localStorage.setItem(CURRENT_SESSION_KEY, resumeId);
+          }
           beginResumeReplay();
           return;
         }
@@ -1655,6 +1675,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         term.write(`\r\n\x1b[90m${PTY_SESSION_ENDED_TERMINAL_LINE}\x1b[0m\r\n`);
         setEndedReason("exited");
         setPtyState("ended");
+        // 2026-10-07 修复：会话真正结束时清理保存的 session_id
+        localStorage.removeItem(CURRENT_SESSION_KEY);
         return;
       }
       if (ev.code === 4409) {

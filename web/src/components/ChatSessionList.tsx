@@ -127,6 +127,8 @@ export function ChatSessionList({
     (id: string) => {
       onPicked?.();
       if (id === activeSessionId) return;
+      // 2026-10-07 修复：切换会话时更新 localStorage
+      localStorage.setItem("hermes.current.session", id);
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
