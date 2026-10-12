@@ -111,6 +111,14 @@ TOOLSETS = {
         "（需 userdebug 固件或已 Root 机型）。",
         ["mobile_devices", "mobile_shell", "mobile_screenshot", "mobile_ui_dump", "mobile_input"],
     ),
+    # 电脑设备插件（主人令 2026-10-13）：Windows/Ubuntu 装单文件代理替代 SSH，直接操控
+    # 用户设备；后端不可达时 check_fn 把本 toolset 判为不可用，模型看不到这些工具。
+    "devices": _ts(
+        "Windows/Ubuntu 电脑控制（设备插件，替代 SSH）：配对主人的电脑后，可直接在其上执行 "
+        "shell 命令（装软件、改配置、跑脚本）、查看真实执行结果、吊销设备。设备需运行嘎妞"
+        "代理（单文件 Python 脚本，下载即用，无需 pip install）。",
+        ["device_list", "device_pair", "device_shell", "device_revoke"],
+    ),
     "terminal": _ts("Terminal/command execution and process management tools", ["terminal", "process_manage"]),
     "skills": _ts(
         "Access, create, edit, and manage skill documents with specialized "

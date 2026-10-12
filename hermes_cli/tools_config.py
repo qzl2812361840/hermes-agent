@@ -95,6 +95,8 @@ CONFIGURABLE_TOOLSETS = [
     ("computer_use",     "🖱️  Computer Use (macOS/Windows/Linux)", "background desktop control via cua-driver"),
     # 主人令 2026-10-13：手机控制是本 APP 的主要用途，默认开启（服务器需装 platform-tools/adb）。
     ("mobile",           "📱 手机控制 (adb)",           "shell, screenshot, ui dump, tap/swipe/text"),
+    # 主人令 2026-10-13：电脑控制设备插件（装代理替代 SSH），默认开启（后端可达即插即用）。
+    ("devices",          "💻 电脑控制 (设备插件)",       "pair/list/shell/revoke — 装代理替代 SSH"),
 ]
 
 
