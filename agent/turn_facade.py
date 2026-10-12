@@ -95,6 +95,19 @@ class TurnFacadeMixin:
             lease = admission.lease
             conversation_history = admission.conversation_history
 
+            # ── Auto model routing (主人令 2026-10-13) ── When the session model
+            # is the `auto` sentinel, classify this turn's user text and switch
+            # model + reasoning effort in place before the turn runs. No-op for
+            # any concrete model; the helper itself never raises.
+            try:
+                from agent.auto_router import maybe_apply_auto_route
+
+                _auto_route = maybe_apply_auto_route(self, user_message)
+                if _auto_route:
+                    self._last_auto_route = _auto_route
+            except Exception:
+                pass
+
             relay_session_cwd, relay_turn_cwd = resolve_relay_scope_cwds(
                 self,
                 effective_task_id,

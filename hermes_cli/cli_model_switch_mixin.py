@@ -231,6 +231,62 @@ def _apply_reasoning_after_switch(cli, effort: str, *, persist_global: bool) -> 
     _cprint(f"    Reasoning effort: {effort}" + (" (saved to config)" if saved else ""))
 
 
+def _apply_auto_model_mode(cli, *, persist_global: bool, one_turn: bool = False,
+                           provider: str = "") -> None:
+    """``/model auto`` — hand model + reasoning-effort selection to the router
+    (主人令 2026-10-13). No provider dance: the sentinel rides on the current
+    provider until the turn-start hook resolves a concrete model.
+
+    ``provider`` (``/model auto --provider X``): pin the home provider the
+    router stays on. ``--once`` snapshots the runtime so the existing one-turn
+    restore brings the concrete model back after a single response. ``--global``
+    writes ``model: auto`` into config.yaml (persist_model_selection expects a
+    concrete result, so the sentinel takes the config write directly).
+    """
+    from cli import CLI_CONFIG, _cprint, logger, save_config_value
+
+    from agent.auto_router import AUTO_MODEL_SENTINEL, load_auto_policy
+    from hermes_cli.config import load_config
+
+    old_model = cli.model
+    if one_turn:
+        cli._pending_one_turn_model_restore = cli._snapshot_model_runtime()
+    cli.model = AUTO_MODEL_SENTINEL
+    if provider:
+        # `/model auto --provider X`: pin the router's home provider.
+        cli.provider = provider
+        cli.requested_provider = provider
+    agent = getattr(cli, "agent", None)
+    if agent is not None:
+        # No switch_model: 'auto' is not a real endpoint. The turn-start hook
+        # (agent.auto_router.maybe_apply_auto_route) resolves the concrete model.
+        try:
+            agent.model = AUTO_MODEL_SENTINEL
+            if provider:
+                agent.provider = provider
+        except Exception:
+            logger.debug("auto mode: could not set agent.model", exc_info=True)
+
+    policy = load_auto_policy(load_config() or {})
+    _cprint(f"  ✓ Auto model mode ON ({old_model or 'unknown'} → auto)")
+    for tier in ("trivial", "simple", "standard", "complex"):
+        _cprint(f"    {tier:<9} → {policy['models'][tier] or '(session default)'} · effort {policy['efforts'][tier]}")
+    _cprint("    /model <name> switches back to a fixed model")
+
+    if persist_global:
+        if save_config_value("model", AUTO_MODEL_SENTINEL):
+            CLI_CONFIG["model"] = AUTO_MODEL_SENTINEL
+            _cprint("    Saved to config.yaml (--global)")
+    if not one_turn:
+        db = getattr(cli, "_session_db", None)
+        sid = getattr(cli, "session_id", None)
+        if db and sid:
+            try:
+                db.update_session_model(sid, AUTO_MODEL_SENTINEL)
+            except Exception:
+                logger.debug("auto mode: session row persist failed", exc_info=True)
+
+
 def _commit_model_switch(
     cli, result, *, persist_global: bool, one_turn: bool = False, picker: bool = False,
     reasoning_effort: str = "") -> None:
@@ -436,6 +492,25 @@ class CLIModelSwitchMixin:
         """
         from cli import logger
         if not (session_meta or {}).get("model") or getattr(self, "_explicit_model_override", False):
+            return
+        # Auto mode sentinel (主人令 2026-10-13): 'auto' is not a real endpoint —
+        # restore the sentinel itself and keep the ambient provider; the turn-start
+        # hook (agent.auto_router) resolves the concrete model per turn. Skipping
+        # switch_model here is what keeps a resumed auto session openable.
+        from agent.auto_router import is_auto_model
+        if is_auto_model((session_meta or {}).get("model")):
+            self.model = "auto"
+            agent = getattr(self, "agent", None)
+            if agent is not None:
+                try:
+                    agent.model = "auto"
+                except Exception:
+                    logger.debug("auto mode: resume could not set agent.model", exc_info=True)
+            msg = "Model restored from session: auto (router picks per turn)"
+            if quiet:
+                print(msg, file=sys.stderr)
+            else:
+                self._console_print(f"[dim]{_escape(msg)}[/dim]")
             return
         route = stored_session_route(session_meta, current_model=self.model, current_provider=self.provider)
         if route is None:
@@ -819,6 +894,15 @@ class CLIModelSwitchMixin:
         persist_global = resolve_persist_behavior(
             request.is_global, request.is_session, is_once=one_turn,
             explicit_provider=request.explicit_provider)
+
+        # `/model auto` — hand selection to the router (主人令 2026-10-13).
+        # Intercepted before provider resolution: the sentinel is not a real
+        # endpoint, and the turn-start hook resolves the concrete model.
+        from agent.auto_router import is_auto_model
+        if is_auto_model(request.target):
+            return _apply_auto_model_mode(
+                self, persist_global=persist_global, one_turn=one_turn,
+                provider=request.explicit_provider or "")
 
         # --refresh: wipe the picker cache so every authed provider's /v1/models is re-fetched.
         if request.force_refresh:

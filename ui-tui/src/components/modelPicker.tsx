@@ -174,7 +174,14 @@ export function ModelPicker({
     return fuzzyRank(allModels, filter, modelSearchText).map(r => r.item)
   }, [allModels, filter, stage])
 
-  const models = filteredModels
+  // 主人令 2026-10-13：模型列表顶部常驻「auto」智能选择行——交给路由器按任务
+  // 复杂度选模型 + 推理档位（复杂问题用贵模型、推理拉满；琐事用快模型、推理压低），
+  // 用户不再手动三步挑。选中 auto 即切换，并跳过手动推理档位步骤。
+  const AUTO_MODEL = 'auto'
+  const models = useMemo(
+    () => (stage === 'model' ? [AUTO_MODEL, ...filteredModels] : filteredModels),
+    [stage, filteredModels]
+  )
 
   // Keep the active selection within the (possibly filtered) list bounds.
   useEffect(() => {
@@ -470,6 +477,13 @@ export function ModelPicker({
       const model = models[modelIdx]
 
       if (provider && model) {
+        if (model === AUTO_MODEL) {
+          // auto：路由器每轮自己决定模型 + 推理档位，跳过手动档位步骤。
+          onSelect(modelPickerCommand(AUTO_MODEL, provider.slug, allowPersistGlobal && persistGlobal))
+
+          return
+        }
+
         if (pickerOffersReasoning(provider, model)) {
           // Step 3/3: effort for the picked model (skipped on reasoning-free routes).
           setPendingModel(model)
@@ -755,7 +769,7 @@ export function ModelPicker({
 
   // ── Model selection stage ────────────────────────────────────────────
   const { items, offset } = windowItems(models, modelIdx, VISIBLE)
-  const noModelMatches = !!filter.trim() && models.length === 0
+  const noModelMatches = !!filter.trim() && filteredModels.length === 0
 
   return (
     <Box flexDirection="column" width={width}>
@@ -792,6 +806,8 @@ export function ModelPicker({
           )
         }
 
+        const label =
+          row === AUTO_MODEL ? 'auto · 智能选择（按任务复杂度自动选模型 + 推理档位）' : row
         const prefix = modelIdx === idx ? '▸ ' : row === currentModel ? '* ' : '  '
 
         return (
@@ -802,7 +818,7 @@ export function ModelPicker({
             wrap="truncate-end"
           >
             {prefix}
-            {idx + 1}. {row}
+            {idx + 1}. {label}
           </Text>
         )
       })}
