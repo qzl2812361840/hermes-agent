@@ -102,6 +102,15 @@ TOOLSETS = {
         "or keyboard focus. Works with any tool-capable model.",
         ["computer_use"],
     ),
+    # 手机控制（主人令 2026-10-13）：服务器装了 platform-tools（adb）即插即用；
+    # 无 adb 时 check_fn 把本 toolset 判为不可用，模型看不到这些工具。
+    "mobile": _ts(
+        "手机控制（adb，本 APP 的主要用途）：在连接的 Android 设备上执行 shell "
+        "命令（控制每一个软件的总入口）、截图、读取当前界面元素树（无障碍节点）、"
+        "模拟点击/滑动/输入/按键。USB 调试或无线 adb 均可；root=True 可提权"
+        "（需 userdebug 固件或已 Root 机型）。",
+        ["mobile_devices", "mobile_shell", "mobile_screenshot", "mobile_ui_dump", "mobile_input"],
+    ),
     "terminal": _ts("Terminal/command execution and process management tools", ["terminal", "process_manage"]),
     "skills": _ts(
         "Access, create, edit, and manage skill documents with specialized "

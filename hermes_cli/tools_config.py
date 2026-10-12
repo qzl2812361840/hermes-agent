@@ -93,6 +93,8 @@ CONFIGURABLE_TOOLSETS = [
     ("discord_admin",   "🛡️  Discord Server Admin",    "list channels/roles, pin, assign roles"),
     ("yuanbao",          "🤖 Yuanbao",                  "group info, member queries, DM"),
     ("computer_use",     "🖱️  Computer Use (macOS/Windows/Linux)", "background desktop control via cua-driver"),
+    # 主人令 2026-10-13：手机控制是本 APP 的主要用途，默认开启（服务器需装 platform-tools/adb）。
+    ("mobile",           "📱 手机控制 (adb)",           "shell, screenshot, ui dump, tap/swipe/text"),
 ]
 
 
