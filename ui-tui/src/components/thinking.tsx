@@ -3,6 +3,7 @@ import { compactNumber } from '@hermes/shared/format'
 import { memo, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import spinners, { type BrailleSpinnerName } from 'unicode-animations'
 
+import { useGoalLine } from '../app/goalStatus.js'
 import { THINKING_COT_MAX } from '../config/limits.js'
 import { sectionMode } from '../domain/details.js'
 import {
@@ -737,6 +738,11 @@ export const ToolTrail = memo(function ToolTrail({
     visible.thinking === 'expanded' && (preferExpandedThinking || commandOverride || sections?.thinking === 'expanded')
 
   const [now, setNow] = useState(() => Date.now())
+
+  // 主人令 2026-10-13：面板头改「嘎妞思考中」并挂任务步数——让用户一眼看到任务没停。
+  // goal 活跃时用 goal 的 turns（"3/20 步"），否则不显示（保持安静，不造噪音）。
+  const goal = useGoalLine()
+  const stepLabel = goal ? goal.detail.replace(' turns', ' 步') : null
   // Local toggles own the open state once mounted.  Init from the resolved
   // section visibility so default-expanded sections (thinking/tools) render
   // open on first paint; the useEffect below re-syncs when the user mutates
@@ -1059,13 +1065,19 @@ export const ToolTrail = memo(function ToolTrail({
             <Text color={t.color.accent}>{openThinking ? '▾ ' : '▸ '}</Text>
             {thinkingLive ? (
               <Text bold color={t.color.text}>
-                Thinking
+                嘎妞思考中
               </Text>
             ) : (
               <Text color={t.color.muted} dim>
-                Thinking
+                嘎妞思考中
               </Text>
             )}
+            {stepLabel ? (
+              <Text color={t.color.statusFg} dim>
+                {'  '}
+                {stepLabel}
+              </Text>
+            ) : null}
             {thinkingTokensLabel ? (
               <Text color={t.color.statusFg} dim>
                 {'  '}
