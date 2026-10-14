@@ -1326,6 +1326,76 @@ def _account_usage_lines(session: dict) -> list[str]:
     return render_account_usage_lines(snapshot)
 
 
+@_session_method("session.model_state")
+def _(rid, params: dict, session: dict) -> dict:
+    """实时模型状态（咕妮 2026-10-14 主人令）：当前生效模型 + 最近一次实际执行模型 + fallback 链。
+
+    TUI 底部徽章靠它实时刷新，不再吃 session.create 的创建时快照。
+    数据源：
+      - model/provider：_session_info（含 mid-turn pending switch，与其它客户端一致）
+      - actual_model/actual_backend/fallback：ganiu-fallback-notice 插件每次 API 调用落盘的
+        ganiu_active_model.json（同 session 优先，否则最近一次顶层记录）
+      - fallback_chain：顶层 fallback_providers（get_fallback_chain，agent 实际消费的顺序）
+      - fallback_active：agent 运行时 _fallback_activated（litellm 内部切过备用即为真）
+    只含模型名/provider 名，无任何用户内容。
+    """
+    agent = session.get("agent")
+    model, provider = "", ""
+    with contextlib.suppress(Exception):
+        info = _session_info(agent, session)
+        model = str(info.get("model") or "")
+        provider = str(info.get("provider") or "")
+    if not model:
+        with contextlib.suppress(Exception):
+            model = str(_metadata_mirror(session).get("model") or "")
+    if not model:
+        with contextlib.suppress(Exception):
+            model = str(_config_model_target()[0] or "")
+    actual_model, actual_backend, actual_fallback, at = "", "", False, 0.0
+    with contextlib.suppress(Exception):
+        import json as _json
+        import os as _os
+        path = _os.path.join(str(get_hermes_home()), "ganiu_active_model.json")
+        if _os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                data = _json.load(f)
+            ent = None
+            sessions = data.get("sessions") if isinstance(data, dict) else None
+            if isinstance(sessions, dict):
+                key = str(session.get("session_key") or "")
+                agent_sid = str(getattr(agent, "session_id", "") or "")
+                for k in (key, agent_sid):
+                    if k and isinstance(sessions.get(k), dict):
+                        ent = sessions[k]
+                        break
+                if ent is None and sessions:
+                    ent = max(sessions.values(), key=lambda e: float(e.get("at") or 0))
+            if ent is None and isinstance(data, dict):
+                ent = data
+            if isinstance(ent, dict):
+                actual_model = str(ent.get("actual_model") or "")
+                actual_backend = str(ent.get("actual_backend") or "")
+                actual_fallback = bool(ent.get("fallback"))
+                at = float(ent.get("at") or 0)
+    fallback_active = bool(getattr(agent, "_fallback_activated", False)) if agent is not None else False
+    chain: list[str] = []
+    with contextlib.suppress(Exception):
+        from hermes_cli.config import load_user_config_effective
+        from hermes_cli.fallback_config import get_fallback_chain
+        for entry in get_fallback_chain(load_user_config_effective(fail_closed=True)):
+            m = str(entry.get("model") or "").strip()
+            p = str(entry.get("provider") or "").strip()
+            if m:
+                chain.append(f"{m}@{p}" if p else m)
+    return _ok(rid, {
+        "model": model, "provider": provider,
+        "actual_model": actual_model, "actual_backend": actual_backend,
+        "fallback": bool(actual_fallback or fallback_active),
+        "fallback_active": fallback_active,
+        "fallback_chain": chain, "at": at,
+    })
+
+
 @_session_method("session.context_breakdown")
 def _(rid, params: dict, session: dict) -> dict:
     if (agent := session.get("agent")) is None:

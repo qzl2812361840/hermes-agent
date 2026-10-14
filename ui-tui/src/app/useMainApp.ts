@@ -48,6 +48,8 @@ import {
 import { estimatedMsgHeight, messageHeightKey } from '../lib/virtualHeights.js'
 import { onUserWidgets } from '../sdk/userWidgets.js'
 import type { Msg, PanelSection, SlashCatalog } from '../types.js'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 import { applyAgentSnapshot } from './agentRoster.js'
 import { createGatewayEventHandler } from './createGatewayEventHandler.js'
@@ -56,7 +58,12 @@ import { createSlashHandler } from './createSlashHandler.js'
 import { planGatewayRecovery } from './gatewayRecovery.js'
 import { applyGoalSnapshot } from './goalStatus.js'
 import { getInputSelection } from './inputSelectionStore.js'
-import { type GatewayRpc, type StateSetter, type TranscriptRow } from './interfaces.js'
+import {
+  type GatewayRpc,
+  type ModelState,
+  type StateSetter,
+  type TranscriptRow
+} from './interfaces.js'
 import { $overlayState, patchOverlayState } from './overlayStore.js'
 import { $goodVibesTick } from './petFlashStore.js'
 import { applyProcessSnapshot, type ProcessEntry } from './processRoster.js'
@@ -603,6 +610,7 @@ export function useMainApp(gw: GatewayClient) {
   useConfigSync({ gw, setBellOnComplete, setBellOnPrompt, setVoiceEnabled, setVoiceRecordKey, sid: ui.sid })
   useBatteryPoll(gw)
 
+
   useEffect(() => {
     if (!ui.sid) {
       patchUiState({ liveSessionCount: 0, sessionTitle: '' })
@@ -683,6 +691,43 @@ export function useMainApp(gw: GatewayClient) {
       clearInterval(timer)
     }
   }, [gw, ui.sid])
+
+  // 咕妮 2026-10-14 主人令：模型状态实时轮询 —— 底部徽章不再吃 session.create
+  // 快照。/model 切换、配置变更、litellm fallback 都在 10s 内反帱到状态栏。
+  useEffect(() => {
+    if (!ui.sid) {
+      return
+    }
+
+    let stopped = false
+
+    const poll = async () => {
+      try {
+        const result = await rpc<ModelState & Record<string, unknown>>('session.model_state', {
+          session_id: ui.sid
+        })
+
+        if (!stopped && result) {
+          const prev = getUiState()
+
+          // 只在变化时 patch：无条件 patch 会逐次通知订阅者重渲全局。
+          if (JSON.stringify(prev.modelState) !== JSON.stringify(result)) {
+            patchUiState({ modelState: result })
+          }
+        }
+      } catch {
+        // 轮询失败静默：徽章保持上次已知状态，不打扰用户。
+      }
+    }
+
+    void poll()
+    const timer = setInterval(poll, 10000)
+
+    return () => {
+      stopped = true
+      clearInterval(timer)
+    }
+  }, [ui.sid, rpc])
 
   // Tab title: `⚠` waiting on approval/sudo/secret/clarify, `⏳` busy, `✓` idle.
   // Format: `<marker> <session name> · <model> · <cwd>` — name/cwd omitted when absent.

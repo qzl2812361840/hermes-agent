@@ -322,6 +322,19 @@ export interface TranscriptRow {
   msg: Msg
 }
 
+// 实时模型状态（咕妮 2026-10-14 主人令）：TUI 底部徽章每 10s 轮询
+// session.model_state，/model 切换与 litellm fallback 都实时可见。
+export interface ModelState {
+  model: string
+  provider: string
+  actual_model: string
+  actual_backend: string
+  fallback: boolean
+  fallback_active: boolean
+  fallback_chain: string[]
+  at: number
+}
+
 export interface UiState {
   battery: boolean
   batteryStatus: BatteryInfo | null
@@ -339,6 +352,8 @@ export interface UiState {
   // persistent `◉ focus` status-bar badge; never affects request payloads.
   focusView: boolean
   info: null | SessionInfo
+  // 实时模型状态（轮询）：info.model 是创建快照，它才是当前生效值。
+  modelState: ModelState | null
   liveSessionCount: number
   inlineDiffs: boolean
   mouseTracking: MouseTrackingMode

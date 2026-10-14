@@ -141,7 +141,9 @@ def get_model_info(profile: Optional[str] = None, session_id: Optional[str] = No
             _sessions = _d.get("sessions") if isinstance(_d.get("sessions"), dict) else None
             _ent = _d
             if session_id and _sessions:
-                _ent = _sessions.get(session_id) or {}
+                # 咕妮 2026-10-14：本会话无记录时退回顶层最近一次（单用户开发端前端 sid 与
+                # agent sid 不一致时，15 分钟内的顶层记录仍比 config 快照实时）。
+                _ent = _sessions.get(session_id) or _d
             # 配置里的模型和"最近一次真实调用请求的模型"不一致 = 用户刚 /model 换了模型、还没发消息。
             # 这时徽章必须跟着配置走（和下面的模型选择器/会话状态一致），否则面板会停在旧模型名上
             # ——主人 2026-09-29 报的就是这个："模型切换了，面板里显示的依然是原来的模型名称"。

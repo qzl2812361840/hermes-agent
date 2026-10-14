@@ -6,7 +6,7 @@ import { type ReactNode, type RefObject, useEffect, useMemo, useRef, useState } 
 import unicodeSpinners from 'unicode-animations'
 
 import { $delegationState } from '../app/delegationStore.js'
-import type { BatteryInfo, IndicatorStyle, Notice } from '../app/interfaces.js'
+import type { BatteryInfo, IndicatorStyle, ModelState, Notice } from '../app/interfaces.js'
 import { $isStatusRuleOccluded } from '../app/overlayStore.js'
 import { useTurnSelector } from '../app/turnStore.js'
 import { DEV_CREDITS_MODE } from '../config/env.js'
@@ -508,6 +508,7 @@ export function StatusRule({
   statusBarFields = null,
   statusColor,
   model,
+  modelState,
   modelFast,
   modelReasoningEffort,
   modelReasoningEffortWire,
@@ -547,7 +548,13 @@ export function StatusRule({
       : ''
 
   const bar = !segs.compactCtx && usage.context_max && ok('context_pct') ? ctxBar(pct) : ''
-  const modelText = modelLabel(model, modelReasoningEffort, modelFast, modelReasoningEffortWire)
+  // 咕妮 2026-10-14 主人令：命中 fallback 时，底部显示实际执行模型（⚡ 前缀）；
+  // 否则显示当前生效模型（与 info.model 创建快照分展）。
+  const liveModel =
+    modelState?.fallback && modelState.actual_model && modelState.actual_model !== model
+      ? `⚡ ${modelState.actual_model}`
+      : model
+  const modelText = modelLabel(liveModel, modelReasoningEffort, modelFast, modelReasoningEffortWire)
 
   // Battery read-out — the first (pinned) status-bar element when enabled.
   const showBattery = !!battery && battery.available && battery.percent != null && ok('battery')
@@ -977,6 +984,8 @@ interface StatusRuleProps {
   cols: number
   cwdLabel: string
   model: string
+  // 实时模型状态（咕妮 2026-10-14）：fallback 时覆写底部显示的模型名。
+  modelState?: ModelState | null
   modelFast?: boolean
   modelReasoningEffort?: string
   modelReasoningEffortWire?: string
