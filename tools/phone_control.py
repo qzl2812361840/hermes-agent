@@ -83,8 +83,25 @@ def _probe_backend() -> Optional[str]:
 
 
 def check_requirements() -> bool:
-    """后端可达才暴露工具（真探测，不再盲信 env）。"""
-    return _probe_backend() is not None
+    """后端可达**且（能探到在线字段时）有设备在线**才暴露工具。
+
+    2026-10-17 主人任务#72（母体回灌）：原来只判"后端可达"——后端活着但用户手机都没开
+    App 时，模型照样看到 phone_control，一调就进队列干等，是"可见但点不动"的假工具。
+    现在探测 /api/v1/phone/status 的 any_online 字段：有设备在线才可见；全离线隐藏；
+    老部署不返回该字段时降级为"后端可达即可见"。
+    """
+    base = _probe_backend()
+    if base is None:
+        return False
+    try:
+        resp = httpx.get(f"{base}{_PROBE_PATH}", timeout=_PROBE_TIMEOUT)
+        if resp.status_code < 500:
+            data = resp.json()
+            if "any_online" in data:
+                return bool(data["any_online"])
+    except Exception:
+        pass
+    return True
 
 
 def _backend_url() -> str:

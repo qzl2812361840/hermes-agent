@@ -270,6 +270,20 @@ def _profile_name_for_home(home: Path) -> str:
         return "default"
 
 
+# 2026-10-17 主人任务#71/#73: 手机操控双通道边界 + 视觉闭环优先引导。
+# 仅在 phone_control 与 vision_analyze 同时在场时注入(工具驱动的条件引导)。
+PHONE_VISION_GUIDANCE = """【手机操控：双通道边界与视觉闭环】
+- phone_control 操控的是**用户的真实手机**（经嘎妞 App 执行）；mobile_* 系列操控的是
+  **本服务器 adb 连接的调试机**（开发测试用）。给用户办事只用 phone_control，
+  除非主人明确说"操控服务器上连的手机"。
+- 看屏幕内容的唯一正规路径是截图闭环：phone_control(screenshot) 拿截图 URL →
+  vision_analyze 看图得元素/坐标 → phone_control(tap/type_text/swipe) 操作。
+  不要用 shell 命令猜界面；截图看不到的元素（坐标估算）必须再截一张验证。
+- 每步操作后重新截图确认效果，形成"截图→看图→操作→再截图"的循环，
+  不要在没看图的情况下连续盲点。
+- 若 phone_control 不可见（工具列表里没有），说明用户手机不在线：
+  提示用户打开嘎妞 App 并保持在后台，不要退而求其次用 mobile/adb。"""
+
 def _tool_guidance_block(agent: Any) -> Optional[str]:
     """Tool-aware behavioral guidance, injected only when the tools are loaded."""
     names = agent.valid_tool_names
@@ -292,6 +306,7 @@ def _tool_guidance_block(agent: Any) -> Optional[str]:
         memory_guidance,
         SESSION_SEARCH_GUIDANCE if "session_search" in names else None,
         SKILLS_GUIDANCE if "skill_manage" in names else None,
+        PHONE_VISION_GUIDANCE if ("phone_control" in names and "vision_analyze" in names) else None,
         _kanban_guidance,
     ]
     return " ".join(g for g in tool_guidance if g) or None

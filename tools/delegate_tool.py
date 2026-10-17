@@ -199,6 +199,18 @@ def _build_child_agent(
     # global. Only fallback policy follows the owner of a per-call route such
     # as auxiliary.review.
     delegation_cfg = _load_config()
+    # 任务级模型路由（ganiu task_model_router，2026-10-16 移植自 phoenix 配置化路由）：
+    # 模型选择规则全部在 subagent_routing.json 里，按任务描述/角色做本地确定性分类后路由；
+    # 只在未显式指定 model 时介入，任何异常/无匹配都静默沿用默认（不影响主流程）。
+    if not model:
+        try:
+            from tools.task_model_router import route_task_model
+            _routed = route_task_model(goal, getattr(parent_agent, "model", None), effective_role)
+            if _routed:
+                model = _routed
+                logger.info("delegate: 任务级路由 %s → %s", goal[:50], _routed)
+        except Exception as _rerr:
+            logger.debug("delegate: 任务级路由未生效(%s)，沿用默认", _rerr)
     child_toolsets, child_disabled_toolsets = _resolve_child_toolsets(parent_agent, toolsets, effective_role)
     child_prompt = _build_child_system_prompt(
         goal, context, workspace_path=_resolve_workspace_hint(parent_agent), role=effective_role,

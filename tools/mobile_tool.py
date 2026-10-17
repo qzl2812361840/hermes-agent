@@ -12,8 +12,11 @@
   mobile_ui_dump     导出当前界面元素树（无障碍节点：text/desc/bounds）
   mobile_input       模拟操作：tap / swipe / text / keyevent / back / home
 
-adb 不在服务器上时 check_fn 把整个 toolset 判为不可用——装好
-platform-tools 即插即用，无需改代码。
+adb 不在服务器上、或没连任何设备时 check_fn 把整个 toolset 判为不可用——
+装好 platform-tools 并连上设备即插即用，无需改代码。（2026-10-16 两项修订：
+① 判定加严到"确有设备在线"，避免模型看到点不动的假工具；
+② 边界声明：本工具集是**服务器本机** adb 通道，面向开发调试；
+   操控**用户的手机**请用 phone 工具集，经嘎妞 App 执行，两者不要混用。）
 """
 
 import logging
@@ -208,6 +211,20 @@ def mobile_input_tool(args: Dict[str, Any], **kw) -> str:
     return tool_result(ok=True, action=action, command=command)
 
 
+def _mobile_ready() -> bool:
+    """adb 可用且至少一台设备在线——避免"可见但点不动"的假工具。
+
+    2026-10-16 修：原来只查 adb 二进制存在，服务器装着 platform-tools
+    但没插手机时工具照样可见，模型一调就失败。现在要求 list_devices() 非空。
+    """
+    if not adb_available():
+        return False
+    try:
+        return bool(list_devices())
+    except Exception:
+        return False
+
+
 # ── schemas ───────────────────────────────────────────────────────────
 
 _SERIAL_PROP = {
@@ -312,6 +329,6 @@ for _name, _desc, _schema, _handler, _emoji in _SCHEMAS:
         toolset="mobile",
         schema={"name": _name, "description": _desc, "parameters": _schema},
         handler=_handler,
-        check_fn=adb_available,
+        check_fn=_mobile_ready,
         emoji=_emoji,
     )

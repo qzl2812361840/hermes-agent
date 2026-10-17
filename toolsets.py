@@ -105,10 +105,11 @@ TOOLSETS = {
     # 手机控制（主人令 2026-10-13）：服务器装了 platform-tools（adb）即插即用；
     # 无 adb 时 check_fn 把本 toolset 判为不可用，模型看不到这些工具。
     "mobile": _ts(
-        "手机控制（adb，本 APP 的主要用途）：在连接的 Android 设备上执行 shell "
-        "命令（控制每一个软件的总入口）、截图、读取当前界面元素树（无障碍节点）、"
-        "模拟点击/滑动/输入/按键。USB 调试或无线 adb 均可；root=True 可提权"
-        "（需 userdebug 固件或已 Root 机型）。",
+        "手机控制（adb，服务器本机通道，开发调试用）：在**本服务器**用 adb 连接的 "
+        "Android 设备上执行 shell 命令（控制每一个软件的总入口）、截图、读取当前界面"
+        "元素树（无障碍节点）、模拟点击/滑动/输入/按键。仅在 adb 可用且确有设备连接时"
+        "可见。注意：操控**用户的手机**请用 phone 工具集（经嘎妞 App 执行），不要混用。"
+        "USB 调试或无线 adb 均可；root=True 可提权（需 userdebug 固件或已 Root 机型）。",
         ["mobile_devices", "mobile_shell", "mobile_screenshot", "mobile_ui_dump", "mobile_input"],
     ),
     # 电脑设备插件（主人令 2026-10-13）：Windows/Ubuntu 装单文件代理替代 SSH，直接操控
@@ -194,8 +195,11 @@ TOOLSETS = {
         ["federation_discover", "federation_delegate"],
     ),
     "phone": _ts(
-        "嘎妞手机操控 — 打开应用/点击/输入/滑动/截屏/手电筒/朗读等，经嘎妞 App 在手机上真实执行。"
-        "只在 GANIU_BACKEND_URL 配置后可用；命令进队列，手机在线时约 2 秒内执行并回报结果。",
+        "嘎妞手机操控 — 在**用户的手机**上经嘎妞 App 真实执行：打开应用/点击/输入/滑动/"
+        "截屏/手电筒/朗读等。看画面闭环：phone_control(screenshot) 拿截图 URL → "
+        "vision_analyze 看图得坐标 → phone_control(tap) 点击。命令进队列，手机在线时"
+        "约 2 秒内执行并回报结果；**需用户手机保持嘎妞 App 在线**（自动探测，"
+        "无设备在线时本工具自动隐藏，模型看不到）。",
         ["phone_control"],
     ),
     "discord": _ts("Discord read and participate tools (fetch messages, search members, create threads)", ["discord"]),
