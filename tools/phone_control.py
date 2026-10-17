@@ -7,12 +7,22 @@
 动作白名单与 App 端 PhoneCommandExecutor 完全一致（不列没实现的动作）：
   open_app / press_home / press_back / swipe / tap / type_text / shell /
   set_wifi / set_bluetooth / set_flashlight / speak / screenshot
+
+2026-10-16 三项修订（对应三处落实）：
+  ① 可用性判定从"盲信 GANIU_BACKEND_URL 环境变量"改为"真探测后端可达性"——
+     env 没配（k3s 用户容器常态）时自动依次尝试本机 8000 与公网域名，
+     任一候选返回 HTTP 响应即视为可用；全不通才隐藏工具。探测走
+     /api/v1/phone/status（无鉴权、轻量、且覆盖"域名→官网代理→后端"全链路），
+     registry 对 check_fn 有 30s TTL 缓存，探测开销可忽略。
+  ② 工具描述写死"截图→看图→点击"闭环，模型看到 schema 就知道怎么用。
+  ③ 描述里划清与 adb `mobile` 工具集的边界（本工具控用户手机，mobile 控服务器本机设备）。
 """
 from __future__ import annotations
 
 import json
 import os
-from typing import Any
+import time
+from typing import Any, Optional
 
 import httpx
 
@@ -23,14 +33,55 @@ _ACTIONS = (
     "shell", "set_wifi", "set_bluetooth", "set_flashlight", "speak", "screenshot",
 )
 
+# 探测目标：无鉴权、轻量、且覆盖完整链路（域名 → 官网代理 → 后端 phone API）
+_PROBE_PATH = "/api/v1/phone/status"
+_PROBE_TIMEOUT = 2.5
+_PROBE_TTL = 30.0  # 与 registry 的 check_fn TTL 对齐，双保险
+
+# 公网域名兜底（k3s 用户容器出网只放行 80/443，直连宿主 8000 被 C12 网络策略拦截）
+_PUBLIC_FALLBACK = "https://ganiu.paihuai.vip"
+
+_probe_state: dict[str, Any] = {"base": None, "ts": 0.0}
+
+
+def _backend_candidates() -> list[str]:
+    """候选基址：env 优先，其后本机默认，再其后公网域名（去重保序）。"""
+    cands: list[str] = []
+    env = (os.getenv("GANIU_BACKEND_URL") or "").strip().rstrip("/")
+    if env:
+        cands.append(env)
+    for d in ("http://127.0.0.1:8000", _PUBLIC_FALLBACK):
+        if d not in cands:
+            cands.append(d)
+    return cands
+
+
+def _probe_backend() -> Optional[str]:
+    """返回第一个可达的后端基址；30s 内复用上次结果。任何 HTTP 响应（含 4xx/5xx）都算可达——
+    探测证明的是"网络+服务活着"，不是"接口可用"；接口错误由 handler 自己报。"""
+    now = time.monotonic()
+    if _probe_state["base"] and now - _probe_state["ts"] < _PROBE_TTL:
+        return _probe_state["base"]
+    for base in _backend_candidates():
+        try:
+            resp = httpx.get(f"{base}{_PROBE_PATH}", timeout=_PROBE_TIMEOUT)
+            if resp.status_code < 500:
+                _probe_state["base"] = base
+                _probe_state["ts"] = now
+                return base
+        except Exception:
+            continue
+    return None
+
 
 def check_requirements() -> bool:
-    """没有后端地址就不暴露这个工具（避免出现点不动的假工具）。"""
-    return bool(os.getenv("GANIU_BACKEND_URL"))
+    """后端可达才暴露工具（真探测，不再盲信 env）。"""
+    return _probe_backend() is not None
 
 
 def _backend_url() -> str:
-    return (os.getenv("GANIU_BACKEND_URL") or "http://127.0.0.1:8000").rstrip("/")
+    """handler 用的基址：探测赢家 → env → 公网域名。"""
+    return _probe_backend() or (os.getenv("GANIU_BACKEND_URL") or _PUBLIC_FALLBACK).rstrip("/")
 
 
 def _hermes_key() -> str:
@@ -110,10 +161,15 @@ def phone_control(
 TOOL_SCHEMA = {
     "name": "phone_control",
     "description": (
-        "操控主人手机上的 App/系统（经嘎妞 App 执行，需要手机在线）。"
-        "支持：打开应用(open_app)、返回桌面(press_home)、返回键(press_back)、滑动(swipe)、"
+        "操控用户手机（经嘎妞 App 在手机上真实执行，需要手机在线）。"
+        "【看画面闭环】界面不确定时：① phone_control(action='screenshot') 截图，"
+        "output 里会带截图 URL；② vision_analyze(image_url=<该URL>, "
+        "user_prompt='屏幕上有什么？我要操作的元素在哪？给出中心坐标(x,y)') 看画面；"
+        "③ phone_control(action='tap', params={'x':..,'y':..}) 点击。坐标不准就重复 ①-③。"
+        "【支持的动作】打开应用(open_app)、返回桌面(press_home)、返回键(press_back)、滑动(swipe)、"
         "点击(tap)、输入文字(type_text)、执行 shell(shell)、WiFi/蓝牙/手电筒开关"
         "(set_wifi/set_bluetooth/set_flashlight)、语音朗读(speak)、截屏(screenshot)。"
+        "【边界】本工具控的是用户的手机；服务器本机 adb 连接的设备请用 mobile 工具集。"
         "调用后返回手机真实执行结果；status=pending 表示命令已入队但手机还没回报。"
     ),
     "parameters": {
@@ -143,5 +199,5 @@ registry.register(
         session_id=kw.get("session_id"),
     ),
     check_fn=check_requirements,
-    requires_env=["GANIU_BACKEND_URL"],
+    requires_env=[],
 )

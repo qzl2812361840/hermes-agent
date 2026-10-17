@@ -1134,6 +1134,25 @@ def _run_prompt_submit(
                 status = _result_status(st.result)
             else:
                 status = "error" if st.error_retained else "complete"
+            # 2026-10-14 主人令：打断兜底——被打断且没有任何回答的 turn，把原 prompt 重新入队补跑，
+            # 保证"打断后旧问题必须也回答"（msg 335606 案：22 秒内连发两问，第一问被硬打断后永远没了回答）。
+            # 条件三缺一不可：interrupted 结局 + 无可见回答文本 + 非用户主动 Stop（_turn_cancel_requested）。
+            if (status == "interrupted" and isinstance(text, str) and text.strip()
+                    and not bool(session.get("_turn_cancel_requested"))
+                    and not (isinstance(st.result, dict) and str(st.result.get("final_response") or "").strip())):
+                try:
+                    from tui_gateway.session_auto_continue import _enqueue_prompt, _persist_queued_user_row
+                    with session["history_lock"]:
+                        if not session.get("queued_prompt") and not session.get("queued_prompts"):
+                            env = _enqueue_prompt(session, text, session.get("transport"),
+                                                  turn_author=turn_author)
+                            if env is not None:
+                                _persist_queued_user_row(session, env, display_kind)
+                                logger.info(
+                                    "interrupt-orphan requeued: session=%s chars=%d",
+                                    session.get("session_key") or "", len(text))
+                except Exception:
+                    logger.debug("interrupt-orphan requeue failed", exc_info=True)
             logger.info(
                 "tui turn finished: ui_session=%s session_key=%s agent_session_id=%s status=%s "
                 "error_retained=%s duration=%.1fs%s",

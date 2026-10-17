@@ -230,10 +230,14 @@ def _systemd_timeout_stop_us(unit_name: str) -> Optional[int]:
     for flag in (["--user"], []):
         try:
             result = subprocess.run(
-                ["systemctl", *flag, "show", unit_name, "--property=TimeoutStopUSec"],
+                ["systemctl", *flag, "show", unit_name, "--property=TimeoutStopUSec,LoadState"],
                 capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=2.0,
             )
         except (subprocess.TimeoutExpired, OSError):
+            continue
+        # A unit absent in this scope still reports systemd defaults (e.g. TimeoutStopUSec=90s)
+        # -- skip those, otherwise a system-level unit shadows the bogus --user result.
+        if "LoadState=not-found" in result.stdout:
             continue
         # Output: "TimeoutStopUSec=1min 30s" or "TimeoutStopUSec=90000000"
         for line in result.stdout.splitlines() if result.returncode == 0 else ():

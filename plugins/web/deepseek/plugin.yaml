@@ -1,0 +1,7 @@
+name: web-deepseek
+version: 1.0.0
+description: "DeepSeek web search + page fetch (api.deepseek.com /v1/tools/search, /v1/tools/fetch). Keyed; set DEEPSEEK_API_KEY — https://platform.deepseek.com/api_keys. Paid per successful call; failed calls fall back to the keyless free-tier ring."
+author: NousResearch
+kind: backend
+provides_web_providers:
+  - deepseek
