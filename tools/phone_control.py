@@ -6,7 +6,14 @@
 
 动作白名单与 App 端 PhoneCommandExecutor 完全一致（不列没实现的动作）：
   open_app / press_home / press_back / swipe / tap / type_text / shell /
-  set_wifi / set_bluetooth / set_flashlight / speak / screenshot
+  set_wifi / set_bluetooth / set_flashlight / speak / screenshot /
+  ui_tree / tap_text
+
+2026-10-18 元素树控制方式（与截图识图互补）：
+  ④ ui_tree 拿当前界面元素树（来源：无障碍实时树，失败自动切 uiautomator dump 兜底）；
+     tap_text 按控件文本定位点击（params.target + 可选 mode=exact/contains，
+     a11y 点击失败自动回退树内 center 坐标 input tap）。
+     模型操作手机优先 ui_tree → tap_text，只有树不可用/界面纯图片才用截图识图。
 
 2026-10-16 三项修订（对应三处落实）：
   ① 可用性判定从"盲信 GANIU_BACKEND_URL 环境变量"改为"真探测后端可达性"——
@@ -31,6 +38,7 @@ from tools.registry import registry
 _ACTIONS = (
     "open_app", "press_home", "press_back", "swipe", "tap", "type_text",
     "shell", "set_wifi", "set_bluetooth", "set_flashlight", "speak", "screenshot",
+    "ui_tree", "tap_text",
 )
 
 # 探测目标：无鉴权、轻量、且覆盖完整链路（域名 → 官网代理 → 后端 phone API）
@@ -117,7 +125,11 @@ def phone_control(
             swipe（params.x1,y1,x2,y2）、tap（params.x,y）、
             type_text（params.text 输入文字）、shell（params.cmd 执行命令）、
             set_wifi / set_bluetooth / set_flashlight（params.on true/false）、
-            speak（params.text 让手机朗读）、screenshot（截屏并保存到后端）
+            speak（params.text 让手机朗读）、screenshot（截屏并保存到后端）、
+            ui_tree（返回当前界面元素树 JSON：nodes[] 含 id/text/desc/rid/cls/clickable/center/bounds，
+            source 为 a11y 或 uiautomator；用于按控件文本定位）、
+            tap_text（params.target 控件文本，可选 params.mode=exact/contains 默认 contains；
+            按文本定位并点击，a11y 失败自动回退树内 center 坐标 input tap）
         params: 动作参数（见上）
         user_id: 目标用户；不填则从会话 id 推断
         device_name: 目标设备名（多设备时用；与 user_id 二选一）
@@ -162,13 +174,18 @@ TOOL_SCHEMA = {
     "name": "phone_control",
     "description": (
         "操控用户手机（经嘎妞 App 在手机上真实执行，需要手机在线）。"
-        "【看画面闭环】界面不确定时：① phone_control(action='screenshot') 截图，"
+        "【元素树闭环·首选】要操作界面时：① phone_control(action='ui_tree') 拿当前界面元素树"
+        "（nodes[] 带 text/desc/center/bounds）；② 从树里找目标控件文本，"
+        "phone_control(action='tap_text', params={'target':'控件文本'}) 按文本点击"
+        "（完全匹配不到自动模糊匹配，树里无文本可点才回退 tap 节点 center 坐标）。"
+        "【截图识图·兜底】元素树拿不到或界面是图片/画布时：① phone_control(action='screenshot') 截图，"
         "output 里会带截图 URL；② vision_analyze(image_url=<该URL>, "
         "user_prompt='屏幕上有什么？我要操作的元素在哪？给出中心坐标(x,y)') 看画面；"
         "③ phone_control(action='tap', params={'x':..,'y':..}) 点击。坐标不准就重复 ①-③。"
         "【支持的动作】打开应用(open_app)、返回桌面(press_home)、返回键(press_back)、滑动(swipe)、"
         "点击(tap)、输入文字(type_text)、执行 shell(shell)、WiFi/蓝牙/手电筒开关"
-        "(set_wifi/set_bluetooth/set_flashlight)、语音朗读(speak)、截屏(screenshot)。"
+        "(set_wifi/set_bluetooth/set_flashlight)、语音朗读(speak)、截屏(screenshot)、"
+        "元素树(ui_tree)、按文本点击(tap_text)。"
         "【边界】本工具控的是用户的手机；服务器本机 adb 连接的设备请用 mobile 工具集。"
         "调用后返回手机真实执行结果；status=pending 表示命令已入队但手机还没回报。"
     ),

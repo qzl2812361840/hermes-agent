@@ -378,15 +378,17 @@ def load_permanent(patterns: set):
 
 
 def _ganiu_authority_grant(choice: str) -> None:
-    """2026-09-26 决策权体系（主人令）：TUI/CLI 审批选到 task/time1h/time5h 档时，
+    """2026-09-26 决策权体系（主人令）：TUI/CLI 审批选到 task/time1h/time5h/always 档时，
     落成持久化授权（/opt/hermes/.hermes/ganiu_decision_authority.json），脱离会话仍生效。
 
-    task   → 本任务内你决定（到下一个用户问题/任务完成）
-    time1h → 1 小时内你决定
-    time5h → 5 小时内你决定
+    task    → 本任务内你决定（到下一个用户问题/任务完成）
+    time1h  → 1 小时内你决定
+    time5h  → 5 小时内你决定
+    forever → 永久级（2026-10-17 主人令：最长一星期，脚本落 168h，到点自动失效）
     """
     import subprocess as _sp
-    scope_map = {"task": ("task", None), "time1h": ("time", "1"), "time5h": ("time", "5")}
+    scope_map = {"task": ("task", None), "time1h": ("time", "1"), "time5h": ("time", "5"),
+                 "forever": ("forever", "168")}
     if choice not in scope_map:
         return
     scope, hours = scope_map[choice]
@@ -855,10 +857,15 @@ def _human_decision(spec: _GateSpec, *, command: str, description: str,
 
     def grant(choice: str) -> dict:
         # 2026-09-26 决策权体系：task/time1h/time5h 档 → 落持久化授权（主人令）
+        # 2026-10-17 主人令：永久级最多一星期 —— always 也落 ganiu forever(168h)，
+        # 且不再写进 command_allowlist 无限期 allowlist（降级为 session，本会话不再问）。
         if choice in ("task", "time1h", "time5h"):
             _ganiu_authority_grant(choice)
-            # 内核侧按最接近的原生档生效：task→session，time*→always
-            choice = "session" if choice == "task" else "always"
+            # 内核侧按最接近的原生档生效：一律降为 session，避免 time* 写成无限期 allowlist
+            choice = "session"
+        elif choice == "always":
+            _ganiu_authority_grant("forever")
+            choice = "session"
         # A smart-DENY owner override is always one operation, even if an older client returns "session" or "always".
         if not smart_denied:
             _persist_choice(session_key, choice, warnings)
