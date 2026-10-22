@@ -27,7 +27,7 @@ import "@xterm/xterm/css/xterm.css";
 import { Button } from "@nous-research/ui/ui/components/button";
 import { Typography } from "@nous-research/ui/ui/components/typography/index";
 import { cn } from "@/lib/utils";
-import { Copy, ImagePlus, PanelRight, RotateCcw, X } from "lucide-react";
+import { ArrowRightLeft, ImagePlus, PanelRight, RotateCcw, X } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useSearchParams } from "react-router";
@@ -243,6 +243,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptRef = useRef(0);
   const forceFreshPtyRef = useRef(false);
+  // 2026-10-23 主人令: fresh PTY 就绪后待注入 /new 的一次性标记(onopen 置位,
+  // onmessage 首包输出后消费; ws 断开即失效, 不会跨连接重复注入)。
+  const newChatInjectPendingRef = useRef(false);
   // 2026-09-30 嘎妞补丁（回归修复）：用户明确要「新对话」时记一笔，自动恢复会话
   // 逻辑必须彻底让路——此前点侧边栏「对话」会被 ?new=1 的效果改写回 /chat，
   // 紧接着自动恢复又跑起来，把用户拽回「最近那条约会」（主人报的「连接的常用对话」）。
@@ -289,6 +292,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   }, []);
   const reconnectPty = useCallback(() => {
     forceFreshPtyRef.current = false;
+    newChatInjectPendingRef.current = false;
     reconnectAttemptRef.current = 0;
     clearReconnectTimer();
     blockedInputNoticeRef.current = false;
@@ -648,7 +652,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     return () => setEnd(null);
   }, [isActive, narrow, mobilePanelOpen, modelToolsLabel, setEnd]);
 
-  const handleCopyLast = () => {
+  const handleNextModel = () => {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     // Send the slash as a burst, wait long enough for Ink's tokenizer to
@@ -656,7 +660,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     // paste), then send Return as its own event.  The timing here is
     // empirical — 100ms is safely past Node's default stdin coalescing
     // window and well inside UI responsiveness.
-    ws.send("/copy");
+    ws.send("/next-model");
     setTimeout(() => {
       const s = wsRef.current;
       if (s && s.readyState === WebSocket.OPEN) s.send("\r");
@@ -1512,6 +1516,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       // either, so a quiet PTY socket is idle traffic to any proxy timeout.
       // Runs whenever the socket is open — a hidden tab still owns its PTY.
       keepaliveTimer = setInterval(sendTerminalResize, PTY_KEEPALIVE_INTERVAL_MS);
+      // 2026-10-23 主人令: 点「对话」= 开新对话(相当于 /new)。fresh PTY 就绪后
+      // 由 onmessage 首包触发延迟注入 /new(见下方 newChatInjectPendingRef)。
+      if (forceFresh) {
+        newChatInjectPendingRef.current = true;
+      }
       // Resumed sessions replay scrollback over the socket. Start pinned to
       // the bottom so the latest output is in view; released once the user
       // scrolls up (#59591).
@@ -1603,6 +1612,22 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       // sanitizer can turn a nonempty erase-only / all-newline / partial-CSI
       // resume frame into "" (pty-resume-sanitizer.ts); keying off raw `text`
       // would hide the wait notice while the terminal is still blank.
+      // 2026-10-23 主人令: fresh 连接的首包真实输出 = TUI 已启动渲染。再等 600ms
+      // 让 Ink 完成挂载与 gateway.ready 握手, 之后发 /new\r —— 命令必被执行,
+      // 执行后输入框自然清空(修 v4「输入框残留」的根因=发送太早)。仅注入一次。
+      if (newChatInjectPendingRef.current && text.length > 0) {
+        newChatInjectPendingRef.current = false;
+        const injectWs = ws;
+        setTimeout(() => {
+          try {
+            if (injectWs.readyState === WebSocket.OPEN) {
+              injectWs.send("/new\r");
+            }
+          } catch {
+            /* ignore — 终端已关则无需注入 */
+          }
+        }, 600);
+      }
       const rendered = effectiveResume ? sanitizer.next(text) : text;
       // Resume replay lands over many write chunks; pin the viewport to the
       // bottom as each chunk COMMITS (xterm write callback) instead of
@@ -2233,9 +2258,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
 
           <Button
             ghost
-            onClick={handleCopyLast}
-            title="复制上一条回复（原始 Markdown）"
-            aria-label="复制上一条回复"
+            onClick={handleNextModel}
+            title="切换下一个文本模型（litellm 池轮换）"
+            aria-label="切换下一个文本模型"
             className={cn(
               "absolute z-10",
               "normal-case tracking-normal font-normal",
@@ -2249,9 +2274,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             style={{ color: terminalFg }}
           >
             <span className="inline-flex items-center gap-1.5">
-              <Copy className="h-3 w-3 shrink-0" />
+              <ArrowRightLeft className="h-3 w-3 shrink-0" />
               <span className="hidden min-[400px]:inline tracking-wide">
-                {copyState === "copied" ? "已复制" : "复制上一条回复"}
+                {copyState === "copied" ? "已切换" : "切换下一个模型"}
               </span>
             </span>
           </Button>
