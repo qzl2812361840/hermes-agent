@@ -1,0 +1,7 @@
+name: web-volc
+version: 1.0.0
+description: "火山方舟（豆包）联网搜索 — Responses API web_search 工具。Keyed: VOLCANO_ARK_KEY（或复用 VOLCANO_KB_API_KEY）。未开通「联网内容插件」时自动回落 DeepSeek，控制台开通后零配置切回火山。搜索 only（无页面提取）。"
+author: NousResearch
+kind: backend
+provides_web_providers:
+  - volc
