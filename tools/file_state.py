@@ -9,6 +9,8 @@ a per-path lock; every method is a no-op under ``HERMES_DISABLE_FILE_STATE_GUARD
 """
 from __future__ import annotations
 
+import json
+import logging
 import os
 import threading
 import time
@@ -16,6 +18,8 @@ from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 # (mtime, read_ts, partial). partial=True when read_file returned a windowed
 # view (offset > 1 or limit < total_lines) — a later write should still warn
@@ -25,6 +29,16 @@ ReadStamp = Tuple[float, float, bool]
 # Bounded so long sessions don't accumulate unbounded state.
 _MAX_PATHS_PER_AGENT = 4096
 _MAX_GLOBAL_WRITERS = 4096
+
+# ── Owner-facing activity panel (a deterministic "message board") ─────────
+# A throttled per-process JSON snapshot under HERMES_HOME so any other
+# process (the panel script, the owner) can see which session is touching
+# which file — facts recorded by the system, never LLM prose.
+_SNAPSHOT_PREFIX = "file-activity."
+_SNAPSHOT_MIN_INTERVAL = 5.0      # seconds between snapshots per process
+_SNAPSHOT_MAX_ENTRIES = 300       # newest-first cap per snapshot
+_WRITE_WINDOW_SECONDS = 1800.0    # a write stays panel-worthy for 30 minutes
+_READ_WINDOW_SECONDS = 600.0      # a read for 10 minutes
 
 
 def _disabled() -> bool:
@@ -73,6 +87,7 @@ class FileStateRegistry:
         self._path_lock_users: Dict[str, int] = {}
         self._meta_lock = threading.Lock()  # guards _path_locks
         self._state_lock = threading.Lock()  # guards _reads + _last_writer
+        self._last_snapshot = 0.0  # wall-clock throttle for the panel snapshot
 
     @contextmanager
     def lock_path(self, resolved: str):
@@ -109,6 +124,7 @@ class FileStateRegistry:
             return
         with self._state_lock:
             self._stamp(task_id, resolved, mtime, time.time(), partial)
+        self._maybe_snapshot()
 
     def note_write(self, task_id: str, resolved: str, *, mtime: Optional[float] = None) -> None:
         """Record a successful write: global last-writer AND this agent's own
@@ -123,6 +139,7 @@ class FileStateRegistry:
             self._last_writer[resolved] = (task_id, now)
             _evict_oldest(self._last_writer, _MAX_GLOBAL_WRITERS)
             self._stamp(task_id, resolved, mtime, now, False)
+        self._maybe_snapshot()
 
     def check_stale(self, task_id: str, resolved: str) -> Optional[str]:
         """Model-facing warning if this write would be stale, else ``None``. Severity
@@ -175,8 +192,8 @@ class FileStateRegistry:
             "Read the file first so you can write an informed edit.")
 
     def other_session_activity(self, resolved: str, exclude_task_id: str,
-                               write_max_age: float = 1800.0,
-                               read_max_age: float = 600.0) -> Optional[dict]:
+                               write_max_age: float = _WRITE_WINDOW_SECONDS,
+                               read_max_age: float = _READ_WINDOW_SECONDS) -> Optional[dict]:
         """Most recent OTHER-session touch of *resolved* — a write (within
         ``write_max_age``) else a read (within ``read_max_age``) — as
         ``{"kind", "task_id", "age_seconds"}``, or ``None``. Powers the
@@ -205,6 +222,36 @@ class FileStateRegistry:
                     if age <= read_max_age and (best is None or age < best["age_seconds"]):
                         best = {"kind": "read", "task_id": tid, "age_seconds": max(0.0, age)}
         return best
+
+    def _maybe_snapshot(self) -> None:
+        """Throttled activity snapshot for the owner-facing panel. Called
+        OUTSIDE ``_state_lock``; best-effort — never raises, never blocks a
+        file op. One file per process so concurrent gateways don't fight."""
+        if _snapshot_disabled():
+            return
+        now = time.time()
+        if now - self._last_snapshot < _SNAPSHOT_MIN_INTERVAL:
+            return
+        try:
+            with self._state_lock:
+                writers = dict(self._last_writer)
+                reads = {tid: dict(per_path) for tid, per_path in self._reads.items()}
+            entries: List[dict] = []
+            for path, (tid, ts) in writers.items():
+                if now - ts <= _WRITE_WINDOW_SECONDS:
+                    entries.append({"path": path, "task_id": tid, "kind": "write", "ts": ts})
+            for tid, per_path in reads.items():
+                for path, stamp in per_path.items():
+                    ts = stamp[1]
+                    if now - ts <= _READ_WINDOW_SECONDS:
+                        entries.append({"path": path, "task_id": tid, "kind": "read", "ts": ts})
+            entries.sort(key=lambda e: e["ts"], reverse=True)
+            payload = {"pid": os.getpid(), "updated": now,
+                       "entries": entries[:_SNAPSHOT_MAX_ENTRIES]}
+            _write_snapshot(payload)
+            self._last_snapshot = now
+        except Exception:
+            logger.debug("activity snapshot failed", exc_info=True)
 
     def writes_since(self, exclude_task_id: str, since_ts: float,
                      paths: Iterable[str]) -> Dict[str, List[str]]:
@@ -247,6 +294,31 @@ class FileStateRegistry:
         with self._meta_lock:
             self._path_locks.clear()
             self._path_lock_users.clear()
+
+
+def _snapshot_disabled() -> bool:
+    """Panel snapshot opt-out (``HERMES_FILE_ACTIVITY_SNAPSHOT=0``)."""
+    return os.environ.get("HERMES_FILE_ACTIVITY_SNAPSHOT", "").strip().lower() in (
+        "0", "false", "no", "off")
+
+
+def _snapshot_dir() -> Path:
+    try:
+        from hermes_constants import get_hermes_home
+        return Path(get_hermes_home())
+    except Exception:
+        home = os.environ.get("HERMES_HOME", "").strip()
+        return Path(home).expanduser() if home else Path.home() / ".hermes"
+
+
+def _write_snapshot(payload: dict) -> None:
+    """Atomic per-PID JSON snapshot; readers never see a half-written file."""
+    directory = _snapshot_dir()
+    directory.mkdir(parents=True, exist_ok=True)
+    final = directory / f"{_SNAPSHOT_PREFIX}{os.getpid()}.json"
+    tmp = directory / f"{_SNAPSHOT_PREFIX}{os.getpid()}.json.tmp"
+    tmp.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    os.replace(tmp, final)
 
 
 _registry = FileStateRegistry()

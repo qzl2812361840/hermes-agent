@@ -18,10 +18,14 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
+import subprocess
+import sys
 import tempfile
 import threading
 import time
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from tools import file_state
@@ -264,6 +268,193 @@ class FileToolsIntegrationTests(unittest.TestCase):
             self.assertEqual(f.read(), "B wrote\n")
 
 
+
+
+class OtherSessionActivityTests(unittest.TestCase):
+    """other_session_activity(): read-time multi-session awareness (2026-10-24)."""
+
+    def setUp(self) -> None:
+        file_state.get_registry().clear()
+        self._tmpfiles: list[str] = []
+
+    def tearDown(self) -> None:
+        for p in self._tmpfiles:
+            try:
+                os.unlink(p)
+            except OSError:
+                pass
+        file_state.get_registry().clear()
+
+    def _mk(self, content: str = "x\n") -> str:
+        p = _tmp_file(content)
+        self._tmpfiles.append(p)
+        return p
+
+    def test_write_activity_reported(self) -> None:
+        reg = file_state.get_registry()
+        p = self._mk()
+        reg.record_read("session:A", p)
+        reg.note_write("session:A", p)
+        act = reg.other_session_activity(p, "session:B")
+        self.assertIsNotNone(act)
+        self.assertEqual(act["kind"], "write")
+        self.assertEqual(act["task_id"], "session:A")
+
+    def test_read_activity_reported(self) -> None:
+        reg = file_state.get_registry()
+        p = self._mk()
+        reg.record_read("session:A", p)
+        act = reg.other_session_activity(p, "session:B")
+        self.assertIsNotNone(act)
+        self.assertEqual(act["kind"], "read")
+        self.assertEqual(act["task_id"], "session:A")
+
+    def test_own_activity_excluded(self) -> None:
+        reg = file_state.get_registry()
+        p = self._mk()
+        reg.note_write("session:A", p)
+        self.assertIsNone(reg.other_session_activity(p, "session:A"))
+
+    def test_unknown_path_returns_none(self) -> None:
+        self.assertIsNone(
+            file_state.get_registry().other_session_activity("/no/such/path.txt", "session:B"))
+
+    def test_write_outranks_read(self) -> None:
+        reg = file_state.get_registry()
+        p = self._mk()
+        reg.record_read("session:A", p)
+        reg.note_write("session:B", p)
+        reg.record_read("session:C", p)
+        act = reg.other_session_activity(p, "session:D")
+        self.assertEqual(act["kind"], "write")
+        self.assertEqual(act["task_id"], "session:B")
+
+    def test_stale_write_ignored(self) -> None:
+        reg = file_state.get_registry()
+        reg._last_writer["/tmp/stale-write.txt"] = ("session:Z", time.time() - 3600)
+        self.assertIsNone(reg.other_session_activity("/tmp/stale-write.txt", "session:B"))
+
+    def test_stale_read_ignored(self) -> None:
+        reg = file_state.get_registry()
+        p = self._mk()
+        mtime = os.path.getmtime(p)
+        reg._reads["session:Y"] = {p: (mtime, time.time() - 1200, False)}
+        self.assertIsNone(reg.other_session_activity(p, "session:B"))
+
+    def test_guard_kill_switch(self) -> None:
+        reg = file_state.get_registry()
+        p = self._mk()
+        reg.note_write("session:A", p)
+        with patch.dict(os.environ, {"HERMES_DISABLE_FILE_STATE_GUARD": "1"}):
+            self.assertIsNone(reg.other_session_activity(p, "session:B"))
+
+    def test_hint_kill_switch(self) -> None:
+        reg = file_state.get_registry()
+        p = self._mk()
+        reg.note_write("session:A", p)
+        with patch.dict(os.environ, {"HERMES_DISABLE_FILE_CONFLICT_HINT": "1"}):
+            self.assertIsNone(reg.other_session_activity(p, "session:B"))
+
+    def test_forget_task_clears(self) -> None:
+        reg = file_state.get_registry()
+        p = self._mk()
+        reg.note_write("session:A", p)
+        reg.forget_task("session:A")
+        self.assertIsNone(reg.other_session_activity(p, "session:B"))
+
+
+class ActivityPanelSnapshotTests(unittest.TestCase):
+    """_maybe_snapshot(): owner-facing activity snapshot + panel script (2026-10-24)."""
+
+    def setUp(self) -> None:
+        file_state.get_registry().clear()
+        self._home = tempfile.mkdtemp(prefix="hermes_activity_panel_")
+        self._env = patch.dict(os.environ, {"HERMES_HOME": self._home})
+        self._env.start()
+        self._interval = patch.object(file_state, "_SNAPSHOT_MIN_INTERVAL", 0.0)
+        self._interval.start()
+        self._tmpfiles: list[str] = []
+
+    def tearDown(self) -> None:
+        self._interval.stop()
+        self._env.stop()
+        for p in self._tmpfiles:
+            try:
+                os.unlink(p)
+            except OSError:
+                pass
+        shutil.rmtree(self._home, ignore_errors=True)
+        file_state.get_registry().clear()
+
+    def _mk(self, content: str = "x\n") -> str:
+        p = _tmp_file(content)
+        self._tmpfiles.append(p)
+        return p
+
+    def _snap(self) -> Path:
+        return Path(self._home) / f"file-activity.{os.getpid()}.json"
+
+    def test_snapshot_written_on_activity(self) -> None:
+        reg = file_state.get_registry()
+        p = self._mk()
+        reg.record_read("session:A", p)
+        reg.note_write("session:A", p)
+        snap = self._snap()
+        self.assertTrue(snap.exists(), "activity should produce a snapshot file")
+        data = json.loads(snap.read_text(encoding="utf-8"))
+        self.assertEqual(data["pid"], os.getpid())
+        pairs = {(e["kind"], e["task_id"]) for e in data["entries"]}
+        self.assertIn(("write", "session:A"), pairs)
+        self.assertIn(("read", "session:A"), pairs)
+
+    def test_snapshot_records_own_activity_for_the_owner(self) -> None:
+        # The panel is for the OWNER: unlike the read-time hint, own activity
+        # must appear — the owner needs to see every session, including one's own.
+        reg = file_state.get_registry()
+        p = self._mk()
+        reg.note_write("session:A", p)
+        data = json.loads(self._snap().read_text(encoding="utf-8"))
+        self.assertTrue(any(e["task_id"] == "session:A" for e in data["entries"]))
+
+    def test_snapshot_kill_switch(self) -> None:
+        reg = file_state.get_registry()
+        p = self._mk()
+        with patch.dict(os.environ, {"HERMES_FILE_ACTIVITY_SNAPSHOT": "1"}):
+            reg.note_write("session:A", p)
+            self.assertTrue(self._snap().exists())
+        os.unlink(self._snap())
+        with patch.dict(os.environ, {"HERMES_FILE_ACTIVITY_SNAPSHOT": "0"}):
+            reg.note_write("session:A", p)
+            self.assertFalse(self._snap().exists())
+
+    def test_panel_script_renders(self) -> None:
+        reg = file_state.get_registry()
+        p = self._mk()
+        reg.note_write("session:abcdef1234567890", p)
+        script = Path(__file__).resolve().parents[2] / "scripts" / "file_activity_panel.py"
+        self.assertTrue(script.exists(), f"panel script missing: {script}")
+        out = subprocess.run([sys.executable, str(script), "--home", self._home],
+                             capture_output=True, text=True, timeout=120)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn("文件活动面板", out.stdout)
+        self.assertIn("session:abcdef1234567890", out.stdout)
+        self.assertIn(p, out.stdout)
+
+    @unittest.skipUnless(sys.platform.startswith("linux"), "linux /proc liveness only")
+    def test_panel_cleans_stale_dead_process_files(self) -> None:
+        dead = 999999  # a PID that does not exist
+        stale = Path(self._home) / f"file-activity.{dead}.json"
+        old = time.time() - 7200
+        stale.write_text(json.dumps({
+            "pid": dead, "updated": old,
+            "entries": [{"path": "/tmp/ghost.txt", "task_id": "session:GHOST",
+                         "kind": "write", "ts": old}]}), encoding="utf-8")
+        os.utime(stale, (old, old))
+        script = Path(__file__).resolve().parents[2] / "scripts" / "file_activity_panel.py"
+        out = subprocess.run([sys.executable, str(script), "--home", self._home],
+                             capture_output=True, text=True, timeout=120)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertFalse(stale.exists(), "stale dead-process snapshot should be cleaned")
 
 
 if __name__ == "__main__":
