@@ -174,6 +174,38 @@ class FileStateRegistry:
             f"{resolved} was not read by this agent. "
             "Read the file first so you can write an informed edit.")
 
+    def other_session_activity(self, resolved: str, exclude_task_id: str,
+                               write_max_age: float = 1800.0,
+                               read_max_age: float = 600.0) -> Optional[dict]:
+        """Most recent OTHER-session touch of *resolved* — a write (within
+        ``write_max_age``) else a read (within ``read_max_age``) — as
+        ``{"kind", "task_id", "age_seconds"}``, or ``None``. Powers the
+        read-time conflict hint: a session learns a sibling is on the same
+        file BEFORE investing a turn of work on content that is about to move.
+        A write outranks a read (it is the harder fact)."""
+        if _disabled() or _hint_disabled():
+            return None
+        now = time.time()
+        best: Optional[dict] = None
+        with self._state_lock:
+            writer = self._last_writer.get(resolved)
+            if writer is not None:
+                writer_tid, writer_ts = writer
+                if writer_tid != exclude_task_id and now - writer_ts <= write_max_age:
+                    best = {"kind": "write", "task_id": writer_tid,
+                            "age_seconds": max(0.0, now - writer_ts)}
+            if best is None:
+                for tid, reads in self._reads.items():
+                    if tid == exclude_task_id:
+                        continue
+                    stamp = reads.get(resolved)
+                    if stamp is None:
+                        continue
+                    age = now - stamp[1]
+                    if age <= read_max_age and (best is None or age < best["age_seconds"]):
+                        best = {"kind": "read", "task_id": tid, "age_seconds": max(0.0, age)}
+        return best
+
     def writes_since(self, exclude_task_id: str, since_ts: float,
                      paths: Iterable[str]) -> Dict[str, List[str]]:
         """``{writer_task_id: [paths]}`` for writes after ``since_ts`` by agents
@@ -245,6 +277,18 @@ def writes_since(exclude_task_id: str, since_ts: float, paths: Iterable[str | Pa
     return _registry.writes_since(exclude_task_id, since_ts, [str(p) for p in paths])
 
 
+def _hint_disabled() -> bool:
+    """Read-time conflict hint opt-out (``HERMES_DISABLE_FILE_CONFLICT_HINT=1``)."""
+    return os.environ.get("HERMES_DISABLE_FILE_CONFLICT_HINT", "").strip() == "1"
+
+
+def other_session_activity(resolved_or_path: str | Path, exclude_task_id: str,
+                           write_max_age: float = 1800.0,
+                           read_max_age: float = 600.0) -> Optional[dict]:
+    return _registry.other_session_activity(
+        str(resolved_or_path), exclude_task_id, write_max_age, read_max_age)
+
+
 def known_reads(task_id: str) -> List[str]:
     return _registry.known_reads(task_id)
 
@@ -257,4 +301,5 @@ __all__ = [
     "check_stale",
     "lock_path",
     "writes_since",
-    "known_reads"]
+    "known_reads",
+    "other_session_activity"]

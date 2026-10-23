@@ -496,6 +496,9 @@ def _read_extracted_document(path: str, _resolved, offset: int, limit: int, task
         _mark_full_write_baseline(str(_resolved), task_id)
         _update_read_timestamp(str(_resolved), task_id)
         file_state.record_read(task_id, str(_resolved))
+        _hint = _conflict_hint(task_id, str(_resolved))
+        if _hint:
+            result_dict["conflict_hint"] = _hint
     return json.dumps(result_dict, ensure_ascii=False)
 
 
@@ -600,6 +603,29 @@ def _record_successful_read(task_data: dict, task_id: str, path: str, resolved_s
         except Exception:
             logger.debug("background-review read-mark failed", exc_info=True)
     return count
+
+
+def _conflict_hint(task_id: str, resolved: str) -> str | None:
+    """Read-time multi-session advisory (never blocking): another session
+    recently wrote/read this file, so its content is actively moving. Lets the
+    reader start from current content and prefer anchored patches over
+    whole-file overwrites."""
+    try:
+        activity = file_state.other_session_activity(resolved, task_id)
+    except Exception:
+        logger.debug("file_state.other_session_activity failed", exc_info=True)
+        return None
+    if not activity:
+        return None
+    tid = str(activity.get("task_id") or "")
+    who = tid if len(tid) <= 20 else "…" + tid[-16:]
+    minutes = max(1, int(activity.get("age_seconds", 0) // 60))
+    if activity.get("kind") == "write":
+        return (f"⚠ 多会话协调：另一会话 {who} 约 {minutes} 分钟前写入过此文件，"
+                "以上内容已是最新。若要修改请以当前内容为准；优先用 patch 做针对性修改，"
+                "避免整文件覆盖。对方下次写入时也会收到同样的提示。")
+    return (f"⚠ 多会话协调：另一会话 {who} 约 {minutes} 分钟前读取过此文件，可能正在处理它。"
+            "若要修改请优先用 patch；若必须整文件写入，内容过期时 write_file 会拒绝并提示你重读。")
 
 
 def read_file_tool(path: str, offset: int = 1, limit: int = DEFAULT_READ_LIMIT, task_id: str = "default") -> str:
@@ -737,6 +763,9 @@ def read_file_tool(path: str, offset: int = 1, limit: int = DEFAULT_READ_LIMIT, 
                                         end_line=end_line, total_lines=total_lines,
                                         version_before=version_before,
                                         snapshot=getattr(result, "_snapshot", None))
+        _hint = _conflict_hint(task_id, resolved_str)
+        if _hint:
+            result_dict["conflict_hint"] = _hint
         if count >= 4:
             return tool_error(
                 f"BLOCKED: You have read this exact file region {count} times in a row. "
