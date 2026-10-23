@@ -526,3 +526,19 @@ Long-form background lives in `website/docs/developer-guide/` (agent-loop, promp
 context-compression-and-caching, gateway-internals, tools-runtime, plugins/, cron-internals,
 session-storage, ...). Workflow rules (PR/issue/review/salvage process) live in the
 `hermes-agent-dev` skill, not here.
+
+
+## 🔒 多会话协作铁律（2026-10-24 主人令，全体 AI 会话必读）
+
+本机多个 AI 会话（WorkBuddy / Claude Code / Hermes 子会话）共用同一份工作区、同一个 Git。
+文件层冲突由父体网关防护（write 硬拒绝 + 读时提示 + checkpoint 回滚），但 **Git 纪律无人替你执行**：
+
+1. **开工第一件事**：`git status` —— 工作区有别人未提交的改动时，先停手：
+   要么等他提交，要么（征得主人同意后）替他打 checkpoint 提交再动工。
+2. **收工最后一步**：改动完成（哪怕只做了一半）立刻 `git commit`，不许攒、不许悬空。
+   一个逻辑单元一个提交，说明写清做了什么。
+3. **同一文件不并行**：发现别的会话正在改你要改的文件（git status / 读时提示都会告诉你），
+   自动换目标或等提交，禁止同时写同一个文件。
+4. **分支纪律**：hermes-agent 用 ganiu-patches-build 分支；其余仓库直接 master 小步提交。
+5. 兜底机制：系统每小时自动 checkpoint 提交脏工作区（见 crontab git-checkpoint-hourly），
+   但那是保险丝不是借口 —— 主动提交永远是第一选择。
