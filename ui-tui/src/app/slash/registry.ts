@@ -1,4 +1,5 @@
 import { coreCommands } from './commands/core.js'
+import { nextModelCommands } from './commands/nextModel.js'
 import { debugCommands } from './commands/debug.js'
 import { opsCommands } from './commands/ops.js'
 import { sessionCommands } from './commands/session.js'
@@ -10,6 +11,7 @@ import type { SlashCommand } from './types.js'
 
 export const SLASH_COMMANDS: SlashCommand[] = [
   ...coreCommands,
+  ...nextModelCommands,
   ...topupCommands,
   ...sessionCommands,
   ...subscriptionCommands,

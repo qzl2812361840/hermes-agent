@@ -329,6 +329,8 @@ export interface ModelState {
   provider: string
   actual_model: string
   actual_backend: string
+  /** 这条回落记录当时请求的模型（2026-10-23）：只在它 === model 时该记录才适用于当前选择 */
+  request_model: string
   fallback: boolean
   fallback_active: boolean
   fallback_chain: string[]

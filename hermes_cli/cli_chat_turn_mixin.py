@@ -497,7 +497,27 @@ class CLIChatTurnMixin:
         sys.stdout.flush()
         time.sleep(0.15)
         if turn.result:
-            self.conversation_history = turn.result.get("messages", self.conversation_history)
+            _msgs = turn.result.get("messages", self.conversation_history)
+            # 2026-10-22 Hermes 审核开关接入: hermes_filter_enabled=true 时对
+            # assistant 输出做词库检查(false 原样放行, 词库零改动)
+            try:
+                from hermes_cli.hermes_filter import filter_assistant_text
+                _filtered = False
+                for _i, _m in enumerate(_msgs):
+                    if isinstance(_m, dict) and _m.get("role") == "assistant":
+                        _c = _m.get("content", "")
+                        if isinstance(_c, str) and _c:
+                            _fc = filter_assistant_text(_c)
+                            if _fc != _c:
+                                _msgs = [dict(m) if i == _i and isinstance(m, dict) else m
+                                         for i, m in enumerate(_msgs)]
+                                _msgs[_i]["content"] = _fc
+                                _filtered = True
+                if _filtered:
+                    logging.info("hermes_filter: assistant output filtered")
+            except Exception:
+                pass  # 过滤失败不影响回合落库
+            self.conversation_history = _msgs
         # Mid-turn auto-compression continues in a child session: sync so /status, /resume,
         # titling and the exit summary target the live child, not the ended parent.
         if (self.agent and getattr(self.agent, "session_id", None)

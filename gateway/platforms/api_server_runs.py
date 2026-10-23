@@ -237,6 +237,7 @@ def _http_routes(self) -> list[tuple[str, str, Any]]:
         ("GET", "/v1/runs/{run_id}/events", self._handle_run_events),
         ("POST", "/v1/runs/{run_id}/approval", self._handle_run_approval),
         ("POST", "/v1/runs/{run_id}/steer", self._handle_steer_run),
+        ("POST", "/v1/runs/{run_id}/redirect", self._handle_redirect_run),
         ("POST", "/v1/runs/{run_id}/stop", self._handle_stop_run)]
 
 
@@ -1248,6 +1249,47 @@ async def _handle_steer_run(self, request: "web.Request", *, _api_server) -> "we
             _openai_error, f"Run did not accept steer text: {run_id}", code="steer_not_accepted", status=409)
     _mark_run_event(self, run_id, "run.steered", accepted=True)
     return web.json_response({"object": "hermes.run.steer", "run_id": run_id, "accepted": True})
+
+
+async def _handle_redirect_run(self, request: "web.Request", *, _api_server) -> "web.Response":
+    """POST /v1/runs/{run_id}/redirect -- interrupt the in-flight model request and inject the
+    text as a real user correction (TUI busy_input_mode=interrupt equivalent).  Unlike /steer
+    this cancels the active model request; while tools execute the agent degrades to steer
+    internally, so a running tool is never killed.  409 when the run is not accepting input
+    (terminal status / no live model request) so a caller can fall back to /steer."""
+    _openai_error = _api_server._openai_error
+    run_id, status, agent, _, err = _load_owned_run(
+        self, request, _api_server=_api_server, permission=None, active_fallback=False)
+    if err is not None:
+        return err
+    if status.get("status") != "running" or not hasattr(agent, "redirect"):
+        return _json_error(
+            _openai_error, f"Run is not currently accepting redirect input: {run_id}",
+            code="run_not_accepting_redirect", status=409)
+    body, err = await self._read_json_body(request)
+    if err:
+        return err
+    raw_text = body.get("input") or body.get("message") or body.get("text") or ""
+    redirect_text = _api_server._normalize_chat_content(raw_text).strip()
+    if not redirect_text:
+        return _json_error(
+            _openai_error,
+            "Missing non-empty redirect text; expected 'input', 'message', or 'text'.",
+            code="invalid_redirect_input", status=400)
+    try:
+        accepted = bool(agent.redirect(redirect_text))
+    except Exception as exc:
+        logger.exception("[api_server] redirect failed for run %s", run_id)
+        return _json_error(
+            _openai_error, _api_server._redact_api_error_text(exc), code="redirect_failed", status=500)
+    if not accepted:
+        # No live model request to cancel (turn gap / response already settled): the caller
+        # falls back to /steer, which queues the text for the next tool-batch boundary.
+        return _json_error(
+            _openai_error, f"Run did not accept redirect text: {run_id}",
+            code="redirect_not_accepted", status=409)
+    _mark_run_event(self, run_id, "run.redirected", accepted=True)
+    return web.json_response({"object": "hermes.run.redirect", "run_id": run_id, "accepted": True})
 
 
 async def _handle_stop_run(self, request: "web.Request", *, _api_server) -> "web.Response":

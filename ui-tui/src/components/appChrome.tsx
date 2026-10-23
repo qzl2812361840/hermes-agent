@@ -550,8 +550,18 @@ export function StatusRule({
   const bar = !segs.compactCtx && usage.context_max && ok('context_pct') ? ctxBar(pct) : ''
   // 咕妮 2026-10-14 主人令：命中 fallback 时，底部显示实际执行模型（⚡ 前缀）；
   // 否则显示当前生效模型（与 info.model 创建快照分展）。
+  // 2026-10-23 修正（主人反馈"切完 30 秒跳回英伟达"）：
+  // 回落记录只在「当时请求的正是当前生效模型」时才可信。旧逻辑缺这一判断，
+  // 于是切到新模型后，UI 仍拿上一条（常是别的会话、上一次调用）的 fallback 记录
+  // —— 实测 actual_model=nemotron-550b（即 nvidia/nemotron-3-ultra-550b-a55b:free）
+  // —— 把用户刚选的模型覆盖掉，且该标志粘性不重置，看起来就是"跳回英伟达"。
+  const recBelongsToCurrent =
+    !!modelState?.request_model && modelState.request_model === modelState.model
   const liveModel =
-    modelState?.fallback && modelState.actual_model && modelState.actual_model !== model
+    modelState?.fallback &&
+    recBelongsToCurrent &&
+    modelState.actual_model &&
+    modelState.actual_model !== model
       ? `⚡ ${modelState.actual_model}`
       : model
   const modelText = modelLabel(liveModel, modelReasoningEffort, modelFast, modelReasoningEffortWire)

@@ -449,7 +449,10 @@ async def pty_ws(ws: WebSocket) -> None:
     backend_ws = None
     if user_identity and isinstance(user_identity, dict):
         user_id = user_identity.get("user_id")
-        if user_id is not None:
+        # 2026-10-24 修复：仅数字 user_id 才连嘎妞后端。dashboard 登录会话的
+        # user_id 是用户名字符串，/ws/{user_id:int} 路径参数校验失败返回 403，
+        # 每次 pty 重连都白连一次并刷 errors.log。跳过非数字 id。
+        if user_id is not None and (isinstance(user_id, int) or (isinstance(user_id, str) and user_id.strip().isdigit())):
             try:
                 import websockets
                 backend_url = f"ws://127.0.0.1:8000/ws/{user_id}"

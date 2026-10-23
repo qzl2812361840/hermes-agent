@@ -1361,10 +1361,15 @@ def _(rid, params: dict, session: dict) -> dict:
     if not model:
         with contextlib.suppress(Exception):
             model = str(_config_model_target()[0] or "")
+    # 2026-10-23 修正：一并读出 request_model（这次调用请求的是哪个模型）。
+    # 前端靠它判断这条回落记录是否属于「当前生效模型」——否则切到新模型后，
+    # UI 仍会拿上一条（可能是别的会话、上一次调用）的 fallback 记录覆盖显示。
     actual_model, actual_backend, actual_fallback, at = "", "", False, 0.0
+    request_model = ""
     with contextlib.suppress(Exception):
         import json as _json
         import os as _os
+        import time as _time
         path = _os.path.join(str(get_hermes_home()), "ganiu_active_model.json")
         if _os.path.exists(path):
             with open(path, "r", encoding="utf-8") as f:
@@ -1387,6 +1392,14 @@ def _(rid, params: dict, session: dict) -> dict:
                 actual_backend = str(ent.get("actual_backend") or "")
                 actual_fallback = bool(ent.get("fallback"))
                 at = float(ent.get("at") or 0)
+                request_model = str(ent.get("request_model") or "")
+                # 2026-10-23 修正#2：读取端按插件 _TTL_SECONDS(900s) 判定新鲜度。
+                # 插件只在「写入时」剪枝超期记录；长期无新请求时旧记录会一直留在文件里
+                # （实测残留 15.6 小时）。切到同名模型时，这条陈旧回落记录会让徽章误显示
+                # ⚡ 旧模型 —— 正是主人说的「跳回英伟达」。
+                if at and (_time.time() - at) > 900.0:
+                    actual_model, actual_backend = "", ""
+                    actual_fallback, request_model, at = False, "", 0.0
     fallback_active = bool(getattr(agent, "_fallback_activated", False)) if agent is not None else False
     chain: list[str] = []
     with contextlib.suppress(Exception):
@@ -1400,6 +1413,9 @@ def _(rid, params: dict, session: dict) -> dict:
     return _ok(rid, {
         "model": model, "provider": provider,
         "actual_model": actual_model, "actual_backend": actual_backend,
+        # request_model：这条回落记录当时请求的模型。前端只有在它 == model 时
+        # 才认定该记录属于当前选择，避免切换后被上一条记录误导（2026-10-23）
+        "request_model": request_model,
         "fallback": bool(actual_fallback or fallback_active),
         "fallback_active": fallback_active,
         "fallback_chain": chain, "at": at,
