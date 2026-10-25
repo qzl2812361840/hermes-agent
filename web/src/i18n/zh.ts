@@ -71,7 +71,7 @@ export const zh: Translations = {
     },
     nav: {
       analytics: "分析",
-      chat: "对话",
+      chat: "新建会话",
       config: "配置",
       cron: "定时任务",
       documentation: "文档",

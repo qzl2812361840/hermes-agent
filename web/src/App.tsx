@@ -34,6 +34,7 @@ import {
   FileText,
   Globe,
   Heart,
+  House,
   KeyRound,
   Menu,
   MessageSquare,
@@ -142,6 +143,20 @@ const CHAT_NAV_ITEM: NavItem = {
   labelKey: "chat",
   label: "Chat",
   icon: Terminal,
+};
+
+/**
+ * 嘎妞主会话（主人令 2026-10-26）：绑定嘎妞 App 的主会话页面。
+ * 主会话 id = default:{user}:0:wechat_main——父体是主人（user 98）的单用户实例，
+ * 库里标题就叫「主会话」的那条（501 条消息）。点击 = /chat?resume=<id> 全页重载，
+ * ChatPage 按 resume 直接续上主会话，与 App 端看到的是同一段对话。
+ */
+const MAIN_SESSION_ID = "default:98:0:wechat_main";
+const MAIN_SESSION_NAV_ITEM: NavItem = {
+  path: "/chat",
+  search: `?resume=${encodeURIComponent(MAIN_SESSION_ID)}`,
+  label: "主会话",
+  icon: House,
 };
 
 /**
@@ -460,7 +475,7 @@ export default function App() {
 
   const builtinNav = useMemo(() => {
     const base = embeddedChat
-      ? [CHAT_NAV_ITEM, ...BUILTIN_NAV_REST]
+      ? [CHAT_NAV_ITEM, MAIN_SESSION_NAV_ITEM, ...BUILTIN_NAV_REST]
       : BUILTIN_NAV_REST;
     return showTokenAnalytics
       ? base
@@ -856,13 +871,24 @@ function SidebarNavLink({
   tooltipWarmRef,
   t,
 }: SidebarNavLinkProps) {
-  const { path, label, labelKey, icon: Icon } = item;
+  const { path, label, labelKey, icon: Icon, search } = item;
   const [hovered, setHovered] = useState(false);
   const [tooltipAnchor, setTooltipAnchor] = useState<HTMLElement | null>(null);
+  const location = useLocation();
 
   const navLabel = labelKey
     ? ((t.app.nav as Record<string, string>)[labelKey] ?? label)
     : label;
+
+  // 「新建会话」和「主会话」共用 /chat 路径，激活态按 resume 参数区分
+  // （否则 react-router 的 isActive 会两个同时亮）。
+  const urlResume = new URLSearchParams(location.search).get("resume");
+  const ownActive =
+    path === "/chat"
+      ? search
+        ? urlResume === MAIN_SESSION_ID
+        : !urlResume
+      : undefined;
   const showTooltip = (event: MouseEvent<HTMLElement> | FocusEvent<HTMLElement>) => {
     setHovered(true);
     setTooltipAnchor(event.currentTarget);
@@ -878,16 +904,17 @@ function SidebarNavLink({
       onMouseLeave={collapsed ? hideTooltip : undefined}
     >
       <NavLink
-        // 侧边栏「对话」入口 = 开一个新对话：交给 /chat?new=1，由 ChatPage 消费后从地址栏抹掉。
-        // reloadDocument: 强制整页重新加载，避免"持久化的聊天宿主"沿用上一个会话(点对话看到的还是老对话)。
-        to={path === "/chat" ? "/chat?new=1" : path}
+        // 侧边栏「新建会话」入口 = 开一个新对话：交给 /chat?new=1，由 ChatPage 消费后从地址栏抹掉。
+        // 「主会话」入口 = /chat?resume=<主会话 id>，直接续上主会话。
+        // reloadDocument: 强制整页重新加载，避免"持久化的聊天宿主"沿用上一个会话。
+        to={search ? `${path}${search}` : path === "/chat" ? "/chat?new=1" : path}
         reloadDocument={path === "/chat"}
         end={path === "/sessions"}
         onClick={() => {
-          // 侧边栏「对话」= 开新会话：清掉本标签页的 PTY attach token，
+          // 侧边栏「新建会话」= 开新会话：清掉本标签页的 PTY attach token，
           // 让浏览器连不上旧终端 → 服务端另开一个新终端 → 全新会话
           //（配合 display.tui_auto_resume_recent=false，新终端不会续接旧会话）
-          if (path === "/chat") {
+          if (path === "/chat" && !search) {
             try {
               window.localStorage.removeItem("hermes.pty.token.chat");
             } catch {
@@ -906,7 +933,7 @@ function SidebarNavLink({
             "font-sans text-display uppercase text-sm tracking-[0.12em]",
             "whitespace-nowrap transition-colors cursor-pointer",
             "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-midground",
-            isActive
+            (ownActive ?? isActive)
               ? "text-midground"
               : "text-text-secondary hover:text-midground",
           )
@@ -933,7 +960,7 @@ function SidebarNavLink({
               className="absolute inset-y-0.5 left-1.5 right-1.5 bg-midground opacity-0 pointer-events-none transition-opacity duration-200 group-hover/nav:opacity-5"
             />
 
-            {isActive && (
+            {(ownActive ?? isActive) && (
               <span
                 aria-hidden
                 className="absolute left-0 top-0 bottom-0 w-px bg-midground"
@@ -1372,6 +1399,8 @@ interface NavItem {
   label: string;
   labelKey?: string;
   path: string;
+  /** 可选查询串（如主会话的 ?resume=...）：带上就按 `${path}${search}` 跳转。 */
+  search?: string;
 }
 
 interface SidebarIconWithTooltipProps {
