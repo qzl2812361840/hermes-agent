@@ -155,6 +155,22 @@ def record_response_usage(
 
     # Stash canonical usage for on_turn_complete(); keep the latest call's.
     agent._last_turn_usage = dict(usage_dict)
+    # 2026-10-26: 本轮累加器 —— run.completed / runs 终态要报「本轮」而不是会话累计。
+    # 会话累计（session_*）直接上报会让下游每轮重复计费，实测 9k 的对话被报成 130k。
+    agent._turn_usage_acc = {
+        "input_tokens": int(getattr(agent, "_turn_usage_acc", {}).get("input_tokens", 0))
+                        + int(canonical_usage.input_tokens or 0),
+        "output_tokens": int(getattr(agent, "_turn_usage_acc", {}).get("output_tokens", 0))
+                         + int(canonical_usage.output_tokens or 0),
+        "total_tokens": int(getattr(agent, "_turn_usage_acc", {}).get("total_tokens", 0))
+                        + int(canonical_usage.total_tokens or 0),
+        "cache_read_tokens": int(getattr(agent, "_turn_usage_acc", {}).get("cache_read_tokens", 0))
+                             + int(canonical_usage.cache_read_tokens or 0),
+        "cache_write_tokens": int(getattr(agent, "_turn_usage_acc", {}).get("cache_write_tokens", 0))
+                              + int(canonical_usage.cache_write_tokens or 0),
+        "reasoning_tokens": int(getattr(agent, "_turn_usage_acc", {}).get("reasoning_tokens", 0))
+                            + int(canonical_usage.reasoning_tokens or 0),
+    }
     # The parent's CURRENT prompt size for headroom math (delegate summary budgets): the
     # aggregator's own prompt, never the MoA-folded total (advisor prompts are not in this context).
     agent._last_prompt_size_tokens = int(aggregator_usage.prompt_tokens or 0)
@@ -301,6 +317,8 @@ def record_response_usage(
 # session_* 计数器是整个会话的 running SUM。对外上报（run.completed / runs 终态）
 # 如果直接给累计值，下游按次计费就会把前几轮的 token 重复算进来。
 # 实测：一条 9k 输入的正常对话，被上报成 98k。
+_USAGE_WIRE_FIELDS_KEYS = ("input_tokens", "output_tokens", "total_tokens",
+                          "cache_read_tokens", "cache_write_tokens", "reasoning_tokens")
 _USAGE_WIRE_FIELDS = (
     ("input_tokens", "session_prompt_tokens"),
     ("output_tokens", "session_completion_tokens"),
@@ -312,30 +330,23 @@ _USAGE_WIRE_FIELDS = (
 
 
 def take_turn_usage_delta(agent: Any) -> Dict[str, int]:
-    """把会话累计计数器换算成「本轮增量」，供 run.completed / runs 终态上报。
+    """取走「本轮」真实用量并清零累加器，供 run.completed / runs 终态上报。
 
-    - 首次调用：快照为空 → 累计值本身即本轮用量
-    - 会话重置 / 换 agent：任一计数回退 → 同样按全量算
-    - 同一 turn 内重复调用：累计值没变 → 原样返回上次算出的增量（幂等）
+    与 session_* 的区别：session_* 是整会话 running SUM，直接上报会让下游
+    每一轮都把前面所有轮重复计费（实测：9k 的对话被报成 130k）。
+    这里的值由 record_response_usage() 按每次 API 调用累加而成。
+
+    幂等：同一 turn 内第二次调用累加器已为 0，原样返回上次结果。
     """
-    cur: Dict[str, int] = {}
-    for wire, attr in _USAGE_WIRE_FIELDS:
-        v = getattr(agent, attr, 0)
-        cur[wire] = int(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else 0
+    zero = {k: 0 for k in _USAGE_WIRE_FIELDS_KEYS}
+    acc = getattr(agent, "_turn_usage_acc", None)
+    if not isinstance(acc, dict):
+        return zero
+    if sum(int(acc.get(k, 0) or 0) for k in _USAGE_WIRE_FIELDS_KEYS) <= 0:
+        # 已在本 turn 被取走过 —— 返回上次那份，保持幂等
+        return dict(getattr(agent, "_turn_usage_last", None) or zero)
 
-    prev = getattr(agent, "_turn_usage_snapshot", None)
-    if prev == cur:
-        cached = getattr(agent, "_turn_usage_delta", None)
-        if isinstance(cached, dict):
-            return dict(cached)
-
-    if not isinstance(prev, dict) or any(cur[k] < prev.get(k, 0) for k in cur):
-        prev = dict.fromkeys(cur, 0)
-
-    delta = {k: max(0, cur[k] - int(prev.get(k, 0) or 0)) for k in cur}
-    try:
-        agent._turn_usage_snapshot = cur
-        agent._turn_usage_delta = delta
-    except Exception:
-        pass
-    return dict(delta)
+    out = {k: int(acc.get(k, 0) or 0) for k in _USAGE_WIRE_FIELDS_KEYS}
+    agent._turn_usage_last = dict(out)
+    agent._turn_usage_acc = {k: 0 for k in _USAGE_WIRE_FIELDS_KEYS}
+    return dict(out)
