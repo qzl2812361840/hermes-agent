@@ -4153,9 +4153,9 @@ class APIServerAdapter(OpenAICompatRoutesMixin, BasePlatformAdapter):
         self, agent: Any, result: Any, session_id: Optional[str], *, route, requested_runtime, route_source,
         confirmed_runtime_lock: bool) -> tuple:
         """Attach usage, effective session id, ``_compressed`` and runtime metadata to a finished turn."""
-        usage = {"input_tokens": getattr(agent, "session_prompt_tokens", 0) or 0,
-                 "output_tokens": getattr(agent, "session_completion_tokens", 0) or 0,
-                 "total_tokens": getattr(agent, "session_total_tokens", 0) or 0}
+        # 2026-10-26：session_* 是整会话累计，直接上报会让下游重复计费；改报本轮增量。
+        from agent.turn_usage import take_turn_usage_delta
+        usage = take_turn_usage_delta(agent)
         # Effective session id lets callers track compression-triggered rotations.
         # (#16938)
         _eff_sid = getattr(agent, "session_id", session_id)

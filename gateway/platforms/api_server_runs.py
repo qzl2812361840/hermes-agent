@@ -758,13 +758,15 @@ async def _handle_runs(self, request: "web.Request", *, _api_server) -> "web.Res
 
 
 def _run_usage(agent) -> Dict[str, int]:
-    """Terminal ``usage`` payload from the agent's session counters; a missing or non-numeric
-    counter (test doubles, agents without cache accounting) reads as ``0``."""
-    usage = {}
-    for key, attr in _USAGE_FIELDS:
-        value = getattr(agent, attr, 0)
-        usage[key] = int(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else 0
-    return usage
+    """Terminal ``usage`` payload — **this turn's** counters, not the session totals.
+
+    2026-10-26: the agent's ``session_*`` counters are running sums for the whole
+    conversation, so reporting them verbatim made every turn re-bill all earlier
+    turns. Delegate to ``take_turn_usage_delta`` which diffs against the previous
+    snapshot (and is idempotent within one turn).
+    """
+    from agent.turn_usage import take_turn_usage_delta
+    return take_turn_usage_delta(agent)
 
 
 def _served_runtime(agent) -> Dict[str, str]:

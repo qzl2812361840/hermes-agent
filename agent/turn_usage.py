@@ -293,3 +293,49 @@ def record_response_usage(
             f"({hit_pct:.0f}% hit, {written:,} written)"
         )
     return ResponseUsageOutcome(compression_attempts=compression_attempts, rearmed=rearmed)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 本轮用量增量（2026-10-26）
+# ═══════════════════════════════════════════════════════════════════
+# session_* 计数器是整个会话的 running SUM。对外上报（run.completed / runs 终态）
+# 如果直接给累计值，下游按次计费就会把前几轮的 token 重复算进来。
+# 实测：一条 9k 输入的正常对话，被上报成 98k。
+_USAGE_WIRE_FIELDS = (
+    ("input_tokens", "session_prompt_tokens"),
+    ("output_tokens", "session_completion_tokens"),
+    ("total_tokens", "session_total_tokens"),
+    ("cache_read_tokens", "session_cache_read_tokens"),
+    ("cache_write_tokens", "session_cache_write_tokens"),
+    ("reasoning_tokens", "session_reasoning_tokens"),
+)
+
+
+def take_turn_usage_delta(agent: Any) -> Dict[str, int]:
+    """把会话累计计数器换算成「本轮增量」，供 run.completed / runs 终态上报。
+
+    - 首次调用：快照为空 → 累计值本身即本轮用量
+    - 会话重置 / 换 agent：任一计数回退 → 同样按全量算
+    - 同一 turn 内重复调用：累计值没变 → 原样返回上次算出的增量（幂等）
+    """
+    cur: Dict[str, int] = {}
+    for wire, attr in _USAGE_WIRE_FIELDS:
+        v = getattr(agent, attr, 0)
+        cur[wire] = int(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else 0
+
+    prev = getattr(agent, "_turn_usage_snapshot", None)
+    if prev == cur:
+        cached = getattr(agent, "_turn_usage_delta", None)
+        if isinstance(cached, dict):
+            return dict(cached)
+
+    if not isinstance(prev, dict) or any(cur[k] < prev.get(k, 0) for k in cur):
+        prev = dict.fromkeys(cur, 0)
+
+    delta = {k: max(0, cur[k] - int(prev.get(k, 0) or 0)) for k in cur}
+    try:
+        agent._turn_usage_snapshot = cur
+        agent._turn_usage_delta = delta
+    except Exception:
+        pass
+    return dict(delta)
