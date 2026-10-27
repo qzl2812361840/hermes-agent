@@ -181,6 +181,67 @@ export interface TextInsertResult {
   value: string
 }
 
+// 2026-10-28 主人实测 bug（手机输入法语音 → SSH → TUI）：语音中间稿整句 commit 一次，
+// 终稿再整句 commit 一次（输入法不发 backspace、不用 bracketed paste），两次都走
+// "追加"路径 → 输入框文字翻倍（state.db 358970/359058 实证）。
+// 检测：新到的多字符块 text 是对"光标前刚打进去的上一段"的重说/重组（首字符重合且
+// 互为前缀或高重合）→ 用 text 替换那段旧稿，而不是追加。只对多字符块生效，绝不影响
+// 逐键打字（单字符不走这里）。
+const IME_RECOMPOSE_MAX_LEN = 200
+
+export function applyImeVoiceRecompose(
+  value: string,
+  cursor: number,
+  text: string
+): null | TextInsertResult {
+  if (text.length < 4 || text.length > IME_RECOMPOSE_MAX_LEN) {
+    return null
+  }
+
+  const head = text[0]
+  if (!head) {
+    return null
+  }
+
+  // 在光标前的文本里从后往前找 text 首字符出现的最早合理起点（语音稿通常紧跟上一段，
+  // 不会隔很远；窗口取 3×text 长度，足够覆盖"中间稿≈终稿长度"的常见情形）。
+  const windowStart = Math.max(0, cursor - text.length * 3)
+  const before = value.slice(windowStart, cursor)
+
+  for (let i = before.lastIndexOf(head); i >= 0; i = before.lastIndexOf(head, i - 1)) {
+    const candStart = windowStart + i
+    const old = value.slice(candStart, cursor)
+    if (!old) {
+      continue
+    }
+
+    // 判定"重说/重组"：①旧稿是 text 的前缀（说话被打断的中间稿）②text 是旧稿的
+    // 前缀（终稿比中间稿短）③首 2 字符相同且整体重合率高（编辑距离粗判）。
+    const isPrefix = old.length < text.length && text.startsWith(old)
+    const textIsPrefix = text.length < old.length && old.startsWith(text)
+    let overlap = 0
+    if (!isPrefix && !textIsPrefix) {
+      const n = Math.min(old.length, text.length)
+      let same = 0
+      for (let k = 0; k < n; k++) {
+        if (old[k] === text[k]) {
+          same++
+        }
+      }
+      overlap = n > 0 ? same / n : 0
+    }
+
+    if (isPrefix || textIsPrefix || (old.length >= 4 && overlap >= 0.6)) {
+      return {
+        cursor: candStart + text.length,
+        value: value.slice(0, candStart) + text + value.slice(cursor)
+      }
+    }
+  }
+
+  return null
+}
+
 export function applyPrintableInsert(
   value: string,
   cursor: number,
@@ -1640,6 +1701,17 @@ export function TextInput({
               commit(ins(v, c, text), c + text.length)
             }
 
+            return
+          }
+
+          // IME voice recompose first: a multi-char block that re-states the
+          // freshly-typed tail (voice intermediate -> final, no backspaces)
+          // must REPLACE that tail, not append (2026-10-28主人令: 只留终稿).
+          const recomposed = range ? null : applyImeVoiceRecompose(v, c, text)
+          if (recomposed) {
+            v = recomposed.value
+            c = recomposed.cursor
+            commit(v, c)
             return
           }
 

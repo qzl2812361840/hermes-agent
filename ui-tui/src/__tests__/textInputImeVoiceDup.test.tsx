@@ -1,0 +1,74 @@
+import { EventEmitter } from 'events'
+
+import { renderSync } from '@hermes/ink'
+import React, { useState } from 'react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+import { TextInput } from '../components/textInput.js'
+
+// 2026-10-28 主人实测 bug（手机输入法语音 → SSH → TUI）：
+// 输入法中间稿整句 commit（多字符块），终稿再整句 commit（无 backspace、无 bracketed paste 包裹），
+// textInput 把两块都当"追加"→ 输入框两遍。期望终稿替换中间稿。
+
+class FakeTty extends EventEmitter {
+  chunks: string[] = []
+  columns = 80
+  rows = 24
+  isTTY = true
+  isRaw = false
+  private pendingReads: string[] = []
+  ref(): void {}
+  unref(): void {}
+  read(): string | null { return this.pendingReads.shift() ?? null }
+  send(chunk: string): void { this.pendingReads.push(chunk); this.emit('readable') }
+  setEncoding(): this { return this }
+  setRawMode(mode: boolean): this { this.isRaw = mode; return this }
+  write(chunk: string | Uint8Array, cb?: (err?: Error | null) => void): boolean {
+    this.chunks.push(typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8'))
+    cb?.()
+    return true
+  }
+}
+
+const tick = () => new Promise<void>(resolve => setImmediate(resolve))
+
+function Harness({ onValue }: { onValue: (v: string) => void }) {
+  const [value, setValue] = useState('')
+  return React.createElement(TextInput, {
+    onChange: (next: string) => { setValue(next); onValue(next) },
+    value
+  })
+}
+
+describe('IME voice duplicate insert (2026-10-28)', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+    ;(process.stdout as { isTTY?: boolean }).isTTY = undefined
+  })
+
+  it('voice intermediate commit followed by final commit must not duplicate', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'setInterval', 'Date'] })
+    ;(process.stdout as { isTTY?: boolean }).isTTY = true
+    vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+
+    const stdout = new FakeTty()
+    const stdin = new FakeTty()
+    const stderr = new FakeTty()
+    let last = ''
+    const instance = renderSync(React.createElement(Harness, { onValue: (v: string) => { last = v } }), {
+      patchConsole: false,
+      stderr: stderr as unknown as NodeJS.WriteStream,
+      stdin: stdin as unknown as NodeJS.ReadStream,
+      stdout: stdout as unknown as NodeJS.WriteStream
+    })
+
+    stdin.send('然后给我打包APP')
+    await tick(); await tick(); await tick()
+    stdin.send('然后给我打包APP，给我最新下载链接')
+    await tick(); await tick(); await tick()
+    instance.unmount()
+
+    expect(last).toBe('然后给我打包APP，给我最新下载链接')
+  })
+})
