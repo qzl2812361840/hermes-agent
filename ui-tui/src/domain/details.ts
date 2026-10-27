@@ -22,7 +22,8 @@ export const SECTION_NAMES = ['thinking', 'tools', 'subagents', 'activity'] as c
 // Opt out of any of these with `display.sections.<name>` in config.yaml
 // or at runtime via `/details <name> collapsed|hidden`.
 const SECTION_DEFAULTS: SectionVisibility = {
-  thinking: 'collapsed',
+  // 2026-10-28 主人令：改回官方默认 —— thinking 全程展开直播显示
+  thinking: 'expanded',
   tools: 'expanded',
   activity: 'hidden'
 }
