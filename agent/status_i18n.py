@@ -44,7 +44,7 @@ STATUS_TEXTS: dict[str, tuple[str, str]] = {'status.compaction.running': ['🗜�
                                '🗜️ 上下文已缩减至 {new_ctx} tokens（原 {old_ctx}），正在重试…'],
  'status.compression.count_warning': ['⚠️  Session compressed {count} times — accuracy may degrade. Consider /new to '
                                       'start fresh.',
-                                      '⚠️  本会话已压缩 {count} 次 — 回答准确度可能下降。建议用 /new 开启新会话。'],
+                                      'ℹ️  本会话上下文已按设定截断 {count} 次（阈值触发，保留最近对话，原文均在库中可检索）。'],
  'status.overflow.blocked': ['⚠ Context is over the compression threshold (~{tokens} tokens >= {threshold}) but '
                              'compression is currently blocked ({reason}). The model may stop responding. Run /new '
                              'to start a fresh session or /compress to retry immediately.',
