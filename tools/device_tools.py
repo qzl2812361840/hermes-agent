@@ -10,7 +10,8 @@
   device_list        列出已配对设备（在线状态/平台/配对时间）
   device_pair        铸造 6 位配对码（5 分钟有效），给用户电脑安装代理用
   device_shell       在指定设备上执行 shell 命令并等待真实结果
-  device_desktop     经设备端 cua-driver 操控用户电脑桌面（2026-10-25 新增）
+  device_desktop     操控用户电脑桌面：UIA 元素路线（默认）+ cua-driver 视觉兜底
+                     （2026-10-25 新增；2026-10-29 元素优先双路线，学 Windows-MCP/微软 UFO²）
   device_revoke      吊销设备（凭证立即失效）
 
 代理脚本下载地址：GET {后端}/api/v1/device/agent.py（单文件、纯标准库）。
@@ -58,6 +59,7 @@ _PUBLIC_URL_FALLBACK = "https://ganiu.paihuai.vip"
 _DESKTOP_WRITE_ACTIONS = {
     "click", "double_click", "right_click", "type", "key",
     "drag", "scroll", "set_value", "focus_app",
+    "uia_act",  # UIA 元素写入（invoke/toggle/expand/collapse/select/focus/set_value）
 }
 
 _reach_cache: Dict[str, Any] = {"ts": 0.0, "ok": False}
@@ -370,7 +372,8 @@ def _fence_clear(device_id: str) -> Optional[Dict[str, Any]]:
 
 
 def device_desktop_tool(args: Dict[str, Any], **kw) -> str:
-    """经设备端 cua-driver 操控用户电脑桌面（后台执行，不抢用户鼠标焦点）。"""
+    """操控用户电脑桌面：UIA 元素路线（uia_snapshot/uia_act，默认）+ cua-driver 视觉兜底。
+    Windows 上元素优先（快、省、准），UIA 拿不到元素（UIA_MISS）时落回截图视觉。"""
     device = str(args.get("device") or "").strip()
     action = str(args.get("action") or "").strip()
     params = args.get("params") or {}
@@ -409,7 +412,12 @@ def device_desktop_tool(args: Dict[str, Any], **kw) -> str:
     # 凭证操作决策权门（2026-10-26 主人令）：要输密码/验证码时先查授权态。
     # 只拦 is_credential=true 的 type/set_value——普通文本输入不打扰，
     # 是否涉密由模型自报（它决定要输什么，最清楚）。
-    if action in ("type", "set_value") and args.get("is_credential"):
+    # 2026-10-29：uia_act 的 set_value 子动作同样能填输入框，一并纳入决策权门
+    #（否则元素路线会绕过凭证门——堵死这个口子）。
+    _is_cred_action = action in ("type", "set_value") or (
+        action == "uia_act" and str(params.get("act") or "invoke") == "set_value"
+    )
+    if _is_cred_action and args.get("is_credential"):
         denial = _check_credential_authority(str(args.get("authority_target") or ""))
         if denial is not None:
             # 交还主人 = 进入接管围栏（存现场快照）；主人弄完说"好了"才 takeover_done 复位
@@ -522,16 +530,23 @@ _DEVICE_SCHEMAS = {
     "device_desktop": {
         "name": "device_desktop",
         "description": (
-            "操控主人电脑的桌面（GUI）：截屏、点击、输入、滚动、拖拽、窗口聚焦——"
-            "经用户电脑上的 cua-driver 后台执行，不抢主人的鼠标和键盘焦点。"
+            "操控主人电脑的桌面（GUI），两套路线并存（Windows 双路线/其他平台视觉路线）：\n"
+            "【元素路线·默认】uia_snapshot 读前台窗口的控件树——每个元素带序号/类型/名称/"
+            "automationId/可执行能力(p 字段)/坐标，零截图零视觉开销，又快又准；"
+            "再用 uia_act 按名称(find_name 子串)或 automation_id(find_automation_id)定位元素，"
+            "执行 invoke/toggle/expand/collapse/select/focus/set_value。"
+            "标准 Windows 界面（记事本/计算器/资源管理器/Office/系统对话框等）优先走这条。\n"
+            "【视觉路线·兜底】元素树拿不到（UIA_MISS/UIA_ERROR/超时，Electron/自绘/游戏界面常见）"
+            "时，用 snapshot(params.capture=true) 或 capture 截图走视觉："
+            "看图判断坐标再 click/type/scroll（cua-driver 后台执行，不抢主人鼠标焦点）。\n"
             "当主人说'点一下/打开某个软件/帮我操作电脑界面/看看我屏幕'等 GUI 意图时用本工具"
             "（命令行能办的仍优先 device_shell）。"
-            "只读动作 capture/list_windows/list_apps/get_screen_size/wait/snapshot 免审批；"
-            "写入动作（click/type/key/...）需主人审批。"
-            "【操作节奏】操控任何软件前先 snapshot 拿现场（前台窗口/窗口列表/应用一次拿全）；"
-            "目标软件不在前台时先 focus_app，再动手。"
-            "优先用 accessibility 元素索引定位（driver 与模型侧保证），像素坐标仅兜底。"
-            "首次使用若设备端没装 cua-driver，会把官方安装命令原样转告主人手动安装。\n"
+            "只读动作 capture/list_windows/list_apps/get_screen_size/wait/snapshot/uia_snapshot 免审批；"
+            "写入动作（click/type/key/.../uia_act）需主人审批。"
+            "【操作节奏】先 uia_snapshot 拿前台窗口元素树（Windows 默认路线）；"
+            "目标软件不在前台时先 focus_app，再动手；元素路线失败再视觉兜底。"
+            "首次使用若设备端没装 cua-driver 且需要视觉路线，会把官方安装命令原样转告主人手动安装"
+            "（元素路线不依赖 cua-driver，没装也能用）。\n"
             "【密码/验证码】要输入密码或验证码时：is_credential 必须传 true，"
             "并尽量把 authority_target 填上当前软件名/窗口标题/网址。系统会先查决策权——"
             "默认建议模式下会退回给主人自己输（你就照实告诉主人）；支付/银行/证券类"
@@ -548,25 +563,36 @@ _DEVICE_SCHEMAS = {
                 "action": {
                     "type": "string",
                     "enum": [
+                        "uia_snapshot", "uia_act",
                         "capture", "click", "double_click", "right_click",
                         "type", "key", "drag", "scroll", "set_value",
                         "focus_app", "list_apps", "list_windows",
                         "get_screen_size", "wait", "snapshot",
                     ],
                     "description": (
-                        "桌面动作。capture=截屏（默认带回截图）；click/type/key 等为写入操作（需审批）；"
+                        "桌面动作。uia_snapshot=读前台窗口控件树（Windows 默认第一步，免审批）；"
+                        "uia_act=按元素操作（写入，需审批）；"
+                        "capture=截屏带回图；click/type/key 等视觉路线写入操作（需审批）；"
                         "list_windows/list_apps/get_screen_size 只读；"
                         "snapshot=一体化现场快照（前台窗口+窗口列表+应用+屏幕规格一次拿全，"
-                        "params.capture=true 顺带截屏）——操控任何软件前先 snapshot 拿现场。"
+                        "params.capture=true 顺带截屏）。"
+                        "顺序：uia_snapshot → uia_act，拿不到元素再 capture/视觉。"
                     ),
                 },
                 "params": {
                     "type": "object",
                     "description": (
-                        "driver 工具参数，按 action 透传。常用："
-                        "click {\"x\":100,\"y\":200} 或 {\"element_index\":5}；"
-                        "type {\"text\":\"hello\"}；key {\"keys\":\"ctrl+c\"}；"
-                        "scroll {\"x\":0,\"y\":-3}；drag {\"x1\":0,\"y1\":0,\"x2\":100,\"y2\":100}；"
+                        "参数按 action 透传。\n"
+                        "uia_snapshot：{\"scope\":\"foreground\"}(默认)|\"desktop\"，"
+                        "可选 max_items/budget_ms/max_depth。\n"
+                        "uia_act：{\"find_name\":\"确定\"}(名称子串,不区分大小写) 或 "
+                        "{\"find_automation_id\":\"btnOk\"}(精确)；命中多个用 find_index(默认0)选；"
+                        "act=\"invoke\"(默认)|\"toggle\"|\"expand\"|\"collapse\"|\"select\"|\"focus\"|\"set_value\"；"
+                        "set_value 时 {\"value\":\"要写入的文本\"}。"
+                        "注意 uia_act 用名称/automationId 重新定位元素，别传坐标。\n"
+                        "视觉路线：click {\"x\":100,\"y\":200}；type {\"text\":\"hello\"}；"
+                        "key {\"keys\":\"ctrl+c\"}；scroll {\"x\":0,\"y\":-3}；"
+                        "drag {\"x1\":0,\"y1\":0,\"x2\":100,\"y2\":100}；"
                         "focus_app {\"app\":\"Chrome\"}；capture {\"max_width\":1280}。"
                     ),
                 },
