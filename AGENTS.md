@@ -1,4 +1,12 @@
 # Hermes Agent - Development Guide
+# ⛔ 任务清单铁律（2026-11-02 主人令，最高优先级）
+
+Hermes 及其派发的任何会话/Agent，做任务前必须先把任务原文写入 `/d/嘎妞任务清单.md`
+对应分区（⏳待办），做完划掉标「✅已完成」+证据，不做标「❌不做+原因」。
+派活时把任务登记 + 把本规则原文交付给对方并要求确认。完整 9 条见 `/d/ga_niu_app/AGENTS.md`「任务清单铁律」。
+
+---
+
 
 Instructions for AI coding assistants and developers working on the hermes-agent codebase.
 This root file holds only what applies everywhere. Each area has its own `AGENTS.md` (aim for
