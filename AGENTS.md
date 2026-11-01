@@ -7,6 +7,14 @@ Hermes 及其派发的任何会话/Agent，做任务前必须先把任务原文�
 
 ---
 
+# ⛔ 规则同步登记铁律（2026-11-02 主人令，最高优先级）
+
+以后任何新加入的规则，无论主落在哪个文件，必须同时在项目 AGENTS.md 留一份完整副本
+（注明生效日期与主人令来源）。AGENTS.md 是规则的完整登记处，第三方 Agent 只拿 AGENTS.md
+就能看到全部规则。派发子 Agent 时除交付 AGENTS.md 外，同时登记到 `/d/嘎妞任务清单.md`。
+
+---
+
 
 Instructions for AI coding assistants and developers working on the hermes-agent codebase.
 This root file holds only what applies everywhere. Each area has its own `AGENTS.md` (aim for
