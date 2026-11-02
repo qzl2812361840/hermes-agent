@@ -187,7 +187,7 @@ export interface TextInsertResult {
 // 检测：新到的多字符块 text 是对"光标前刚打进去的上一段"的重说/重组（首字符重合且
 // 互为前缀或高重合）→ 用 text 替换那段旧稿，而不是追加。只对多字符块生效，绝不影响
 // 逐键打字（单字符不走这里）。
-const IME_RECOMPOSE_MAX_LEN = 200
+const IME_RECOMPOSE_MAX_LEN = 2000 // 2026-11-03: 200→2000，主人整段语音口述常超200字，终稿超限直接漏判双落
 
 export function applyImeVoiceRecompose(
   value: string,
@@ -195,6 +195,11 @@ export function applyImeVoiceRecompose(
   text: string
 ): null | TextInsertResult {
   if (text.length < 4 || text.length > IME_RECOMPOSE_MAX_LEN) {
+    return null
+  }
+
+  // 纯换行/空白块（图片粘贴探测路径的典型形态）绝不参与重组
+  if (!/[^\n]/.test(text)) {
     return null
   }
 
@@ -1680,6 +1685,22 @@ export function TextInput({
       } else if (event.keypress.isPasted || (inp.length > 0 && !event.isControlChord)) {
         const bracketed = event.keypress.isPasted || inp.includes('[200~')
         const text = inp.replace(BRACKET_PASTE, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+
+        // IME voice recompose FIRST — before ANY paste routing (2026-11-03 主人令,
+        // 修复 2026-10-28 方案的回归)：手机语音终稿现在会以 bracketed paste 或
+        // 含换行的块到达（SSH 客户端/输入法升级后行为变化），旧方案把去重放在
+        // 粘贴路由之后 → 终稿走粘贴通道绕过去重 → 流式中间稿+终稿双落（两遍）。
+        // 只有多字符块且重述了光标前刚输入的尾部才会命中；正常粘贴无关文本
+        // 不受影响，仍走下面的粘贴路径。
+        if (!range) {
+          const recomposedEarly = applyImeVoiceRecompose(v, c, text)
+
+          if (recomposedEarly) {
+            flushKeyBurst()
+            commit(recomposedEarly.value, recomposedEarly.cursor)
+            return
+          }
+        }
 
         if (bracketed && emitPaste({ bracketed: true, cursor: c, text, value: v })) {
           return
