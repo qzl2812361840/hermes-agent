@@ -153,6 +153,17 @@ def _check_all_guards(command: str, env_type: str,
                                   has_host_access=has_host_access)
 
 
+def _shell_policy_block(command: str, *, force: bool = False) -> Optional[str]:
+    """命令安全接线（2026-11-06 B1）：shell_policy 三档策略。
+    默认 OFF 零影响；内部异常 fail-open（策略故障不得瘫痪终端）。"""
+    try:
+        from agent.shell_gate import policy_block_json
+    except Exception:  # noqa: BLE001 - 接线层不可用时保持既有行为
+        logger.debug("shell_gate unavailable; skipping policy gate", exc_info=True)
+        return None
+    return policy_block_json(command, force=force)
+
+
 from tools.environments.base import EnvironmentConnectionError
 
 
@@ -1422,6 +1433,12 @@ def terminal_tool(
         # Pre-exec security checks (tirith + dangerous command detection);
         # force=True means the user already confirmed.
         verdict = _run_approval_guards(command, env_type, plan.config, force=force)
+
+        # 命令安全接线（2026-11-06 B1）：三档 shell 策略，默认 OFF 零影响。
+        # DENY 硬拦；CONFIRM 需用户已确认（force=True，与危险命令确认语义一致）。
+        policy_block = _shell_policy_block(command, force=force)
+        if policy_block is not None:
+            return policy_block
 
         pty_disabled = pty and _command_requires_pipe_stdin(command)
         if plan.promoted_from_foreground_timeout is not None:

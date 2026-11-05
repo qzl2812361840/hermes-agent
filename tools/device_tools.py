@@ -198,6 +198,17 @@ def device_shell_tool(args: Dict[str, Any], **kw) -> str:
     device_id = _resolve_device(device)
     if not device_id:
         return tool_error(f"设备 {device!r} 不存在，先 device_pair 配对或用 device_list 查看")
+    # 命令安全接线（2026-11-06 B1）：同一套三档 shell 策略，默认 OFF 零影响。
+    # DENY 硬拦；CONFIRM 交给下方既有审批门（confirm_pass_through）。
+    try:
+        from agent.shell_gate import policy_block_json
+    except Exception:  # noqa: BLE001 - 接线层不可用时保持既有行为
+        policy_block_json = None
+    if policy_block_json is not None:
+        policy_block = policy_block_json(command, confirm_pass_through=True)
+        if policy_block is not None:
+            return policy_block
+
     # 2026-10-26 补豁口：shell 命令也过审批门（此前只有服务端 blocklist，无审批）。
     # 服务端毁灭性 blocklist 保留（那是硬拦截）；本条是用户级授权，两层并存。
     denial = _request_shell_approval(device_id, device, command)
