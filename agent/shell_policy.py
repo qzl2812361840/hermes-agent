@@ -31,6 +31,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Iterable, Optional
 
+from .policy_version import policy_version
+
 __all__ = [
     "ShellMode",
     "ShellVerdict",
@@ -404,7 +406,15 @@ class ShellAuditLog:
 
 
 class WhitelistStore:
-    """按档位持久化白名单（JSON 文件，缺省 ~/.hermes/shell_policy_whitelist.json）。"""
+    """按档位持久化白名单（JSON 文件，缺省 ~/.hermes/shell_policy_whitelist.json）。
+
+    2026-11-06 C5 接线（规则版本化，学 dsh-superagent policyVersion/revalidate 设计）：
+    规则集每次变更计算稳定哈希版本号并留变更历史（最多 10 条）；
+    政策变更不吊销在办任务——续做方拿 needs_revalidate(旧版本) 判断是否重验。
+    """
+
+    #: 参与版本哈希之外的元数据键（自身不参与哈希，防递归）
+    _META_KEYS = ("version", "version_history")
 
     def __init__(self, path: str | None = None):
         if path is None:
@@ -412,6 +422,22 @@ class WhitelistStore:
             path = os.path.join(base, "shell_policy_whitelist.json")
         self.path = path
         self._data: dict = self._load()
+
+    def _rules_view(self) -> dict:
+        """规则内容视图（剔除版本元数据，只保留真正影响判定的规则集）。"""
+        return {k: v for k, v in self._data.items() if k not in self._META_KEYS}
+
+    def current_version(self) -> str:
+        """当前规则集的稳定版本号（键序无关哈希）。"""
+        return policy_version(self._rules_view())
+
+    def version_history(self) -> list[dict]:
+        """最近规则变更记录（时间+新版本号），最多 10 条，新在前。"""
+        return list(self._data.get("version_history") or [])
+
+    def needs_revalidate(self, mandate_version: str) -> bool:
+        """续做边界用：任务接单时冻结的版本 != 当前版本 → 要求重验。"""
+        return mandate_version != self.current_version()
 
     def _load(self) -> dict:
         try:
@@ -423,6 +449,12 @@ class WhitelistStore:
     def _save(self) -> None:
         try:
             os.makedirs(os.path.dirname(self.path) or ".", exist_ok=True)
+            new_version = self.current_version()
+            if self._data.get("version") != new_version:
+                history = self._data.get("version_history") or []
+                history = [{"at": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "version": new_version}] + list(history)
+                self._data["version_history"] = history[:10]
+                self._data["version"] = new_version
             with open(self.path, "w", encoding="utf-8") as fh:
                 json.dump(self._data, fh, ensure_ascii=False, indent=1)
         except OSError:
