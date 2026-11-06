@@ -9,6 +9,14 @@
   set_wifi / set_bluetooth / set_flashlight / speak / screenshot /
   ui_tree / tap_text
 
+2026-11-06 B2 写操作读回核验接线（学 Eta DeviceStateMutations 设计）：
+  set_wifi / set_bluetooth 在 HERMES_MUTATION_VERIFY=ON 时走 verify_mutation：
+  read→mutate→read→diff（读现状经 root shell `settings get global`，无该环境默认 OFF 零影响）。
+  读不到当前状态一律拒绝执行（fail-closed，如实上报 failure_code，不瞎重试）；
+  超时（status=pending）如实标注 TIMED_OUT，不当作失败。
+  set_flashlight 无可靠读回口子（Android 无手电筒全局设置键），不硬套核验，行为不变。
+  返回 JSON 增加 verify 字段：{status, before, after, changed, verified, failure_code}。
+
 2026-10-18 元素树控制方式（与截图识图互补）：
   ④ ui_tree 拿当前界面元素树（来源：无障碍实时树，失败自动切 uiautomator dump 兜底）；
      tap_text 按控件文本定位点击（params.target + 可选 mode=exact/contains，
@@ -40,6 +48,12 @@ _ACTIONS = (
     "shell", "set_wifi", "set_bluetooth", "set_flashlight", "speak", "screenshot",
     "ui_tree", "tap_text",
 )
+
+# 可读回核验的 set_* 动作 → 全局设置键（root shell `settings get global <key>`）
+_SET_STATE_KEYS = {
+    "set_wifi": "wifi_on",
+    "set_bluetooth": "bluetooth_on",
+}
 
 # 探测目标：无鉴权、轻量、且覆盖完整链路（域名 → 官网代理 → 后端 phone API）
 _PROBE_PATH = "/api/v1/phone/status"
@@ -125,6 +139,147 @@ def _hermes_key() -> str:
     return ""
 
 
+def _post_control(
+    action: str,
+    params: dict,
+    user_id: Optional[int],
+    device_name: str,
+    wait_seconds: int,
+    session_id: Optional[str],
+) -> str:
+    """执行链路本体：投递命令并等待回报，返回原始 JSON 字符串。"""
+    payload = {
+        "action": action,
+        "params": params or {},
+        "user_id": user_id,
+        "device_name": device_name or None,
+        "session_id": session_id,
+        "wait_seconds": wait_seconds,
+    }
+    headers = {"X-Hermes-Key": _hermes_key(), "Content-Type": "application/json"}
+    try:
+        resp = httpx.post(f"{_backend_url()}/api/v1/phone/control", json=payload, headers=headers, timeout=150)
+    except Exception as exc:
+        return json.dumps({"ok": False, "error": f"后端不可达: {exc}"}, ensure_ascii=False)
+
+    if resp.status_code != 200:
+        return json.dumps(
+            {"ok": False, "error": f"后端返回 {resp.status_code}: {resp.text[:200]}"}, ensure_ascii=False
+        )
+    try:
+        data = resp.json()
+    except Exception:
+        return json.dumps({"ok": False, "error": f"响应解析失败: {resp.text[:200]}"}, ensure_ascii=False)
+    return json.dumps(data, ensure_ascii=False)
+
+
+def _mutation_verify_enabled() -> bool:
+    """B2 门控：HERMES_MUTATION_VERIFY=ON 才启用读回核验，默认 OFF 零影响。"""
+    return (os.getenv("HERMES_MUTATION_VERIFY") or "").strip().upper() == "ON"
+
+
+def _read_phone_setting(
+    state_key: str,
+    *,
+    user_id: Optional[int],
+    device_name: str,
+    session_id: Optional[str],
+) -> str:
+    """经 shell 通道读全局设置当前值；读不到 = 抛异常（verify_mutation 走拒绝路径）。"""
+    raw = _post_control(
+        action="shell",
+        params={"cmd": f"settings get global {state_key}"},
+        user_id=user_id,
+        device_name=device_name,
+        wait_seconds=20,
+        session_id=session_id,
+    )
+    try:
+        data = json.loads(raw)
+    except Exception as exc:
+        raise RuntimeError(f"状态读取响应异常: {raw[:80]}") from exc
+    if not data.get("ok") or data.get("status") not in ("done", "success"):
+        detail = str(data.get("output") or data.get("error") or "")[:80]
+        raise RuntimeError(f"状态读取失败: {detail}")
+    out = str(data.get("output", "")).strip()
+    if out == "":
+        raise RuntimeError("状态读取为空")
+    return out
+
+
+def _phone_control_verified(
+    action: str,
+    params: dict,
+    user_id: Optional[int],
+    device_name: str,
+    wait_seconds: int,
+    session_id: Optional[str],
+    **kwargs: Any,
+) -> str:
+    """set_* 动作的读回核验包装：read→mutate→read→diff，结果带 verify 字段。"""
+    from agent.mutation_verifier import OutcomeStatus, verify_mutation  # 延迟导入防循环依赖
+
+    state_key = _SET_STATE_KEYS[action]
+    expected = "1" if params.get("on") in (True, 1, "true", "True", "1") else "0"
+    sid = session_id or kwargs.get("session_id")
+
+    def _read() -> str:
+        return _read_phone_setting(
+            state_key, user_id=user_id, device_name=device_name, session_id=sid
+        )
+
+    captured: dict[str, str] = {}
+
+    def _mutate() -> tuple[int, bool]:
+        raw = _post_control(
+            action=action,
+            params=params,
+            user_id=user_id,
+            device_name=device_name,
+            wait_seconds=wait_seconds,
+            session_id=sid,
+        )
+        captured["raw"] = raw
+        try:
+            data = json.loads(raw)
+        except Exception:
+            return (1, False)
+        status = data.get("status")
+        if data.get("ok") or status in ("done", "success"):
+            return (0, False)
+        if status == "pending":
+            # 已入队未回报：超时口径如实标注，不当作失败
+            return (None, True)
+        return (1, False)
+
+    outcome = verify_mutation(_read, _mutate, expected=expected)
+    verify_dict = outcome.to_dict()
+
+    if outcome.status is OutcomeStatus.REFUSED:
+        # 读不到当前状态：一律拒绝执行，如实上报，不瞎重试
+        return json.dumps(
+            {
+                "ok": False,
+                "error": f"写操作读回核验拒绝执行：读不到当前状态（{outcome.failure_code}）",
+                "verify": verify_dict,
+            },
+            ensure_ascii=False,
+        )
+    if not captured.get("raw"):
+        # 执行环节抛异常（如后端不可达）
+        return json.dumps(
+            {"ok": False, "error": f"写操作执行失败: {outcome.failure_code}", "verify": verify_dict},
+            ensure_ascii=False,
+        )
+    try:
+        data = json.loads(captured["raw"])
+    except Exception:
+        data = {"ok": False, "error": "响应解析失败", "verify": verify_dict}
+    else:
+        data["verify"] = verify_dict
+    return json.dumps(data, ensure_ascii=False)
+
+
 def phone_control(
     action: str = "",
     params: dict | None = None,
@@ -154,6 +309,7 @@ def phone_control(
 
     Returns:
         JSON 字符串：{ok, status, output, id, note}
+        （HERMES_MUTATION_VERIFY=ON 时 set_wifi/set_bluetooth 另带 verify 读回核验字段）
     """
     action = (action or "").strip()
     if action not in _ACTIONS:
@@ -162,29 +318,25 @@ def phone_control(
             ensure_ascii=False,
         )
 
-    payload = {
-        "action": action,
-        "params": params or {},
-        "user_id": user_id,
-        "device_name": device_name or None,
-        "session_id": session_id or kwargs.get("session_id"),
-        "wait_seconds": wait_seconds,
-    }
-    headers = {"X-Hermes-Key": _hermes_key(), "Content-Type": "application/json"}
-    try:
-        resp = httpx.post(f"{_backend_url()}/api/v1/phone/control", json=payload, headers=headers, timeout=150)
-    except Exception as exc:
-        return json.dumps({"ok": False, "error": f"后端不可达: {exc}"}, ensure_ascii=False)
-
-    if resp.status_code != 200:
-        return json.dumps(
-            {"ok": False, "error": f"后端返回 {resp.status_code}: {resp.text[:200]}"}, ensure_ascii=False
+    params = params or {}
+    if action in _SET_STATE_KEYS and _mutation_verify_enabled():
+        return _phone_control_verified(
+            action=action,
+            params=params,
+            user_id=user_id,
+            device_name=device_name,
+            wait_seconds=wait_seconds,
+            session_id=session_id,
+            **kwargs,
         )
-    try:
-        data = resp.json()
-    except Exception:
-        return json.dumps({"ok": False, "error": f"响应解析失败: {resp.text[:200]}"}, ensure_ascii=False)
-    return json.dumps(data, ensure_ascii=False)
+    return _post_control(
+        action=action,
+        params=params,
+        user_id=user_id,
+        device_name=device_name,
+        wait_seconds=wait_seconds,
+        session_id=session_id or kwargs.get("session_id"),
+    )
 
 
 TOOL_SCHEMA = {
