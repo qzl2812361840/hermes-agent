@@ -17,6 +17,14 @@
   set_flashlight 无可靠读回口子（Android 无手电筒全局设置键），不硬套核验，行为不变。
   返回 JSON 增加 verify 字段：{status, before, after, changed, verified, failure_code}。
 
+2026-11-06 B6 点后核验接线（post_action_verifier 包写类 UI 动作）：
+  tap / tap_text / type_text / swipe 在 HERMES_ACTION_VERIFY=ON 时走 verify_action：
+  动作前先读 ui_tree 存哈希，动作后读树对比——树变了=效果确认（VERIFIED），
+  没变按阶梯重试（默认 2 次、间隔退避），仍不达如实上报 FAILED/TIMED_OUT。
+  动作前就读不到元素树 = 没有可靠读回口子，不硬套核验，行为照旧；
+  核验中途读树失败按未达成处理（不瞎判成功）。结果 JSON 另带 verify 证据字段
+  （status/attempts/checks/failure_code/elapsed_ms）。默认 OFF 零影响。
+
 2026-10-18 元素树控制方式（与截图识图互补）：
   ④ ui_tree 拿当前界面元素树（来源：无障碍实时树，失败自动切 uiautomator dump 兜底）；
      tap_text 按控件文本定位点击（params.target + 可选 mode=exact/contains，
@@ -34,6 +42,7 @@
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import time
@@ -54,6 +63,9 @@ _SET_STATE_KEYS = {
     "set_wifi": "wifi_on",
     "set_bluetooth": "bluetooth_on",
 }
+
+# B6 点后核验覆盖的写类 UI 动作（效果经 ui_tree 前后对比确认）
+_WRITE_UI_ACTIONS = ("tap", "tap_text", "type_text", "swipe")
 
 # 探测目标：无鉴权、轻量、且覆盖完整链路（域名 → 官网代理 → 后端 phone API）
 _PROBE_PATH = "/api/v1/phone/status"
@@ -176,6 +188,108 @@ def _post_control(
 def _mutation_verify_enabled() -> bool:
     """B2 门控：HERMES_MUTATION_VERIFY=ON 才启用读回核验，默认 OFF 零影响。"""
     return (os.getenv("HERMES_MUTATION_VERIFY") or "").strip().upper() == "ON"
+
+
+def _action_verify_enabled() -> bool:
+    """B6 门控：HERMES_ACTION_VERIFY=ON 才启用写类 UI 动作点后核验，默认 OFF 零影响。"""
+    return (os.getenv("HERMES_ACTION_VERIFY") or "").strip().upper() == "ON"
+
+
+def _ui_tree_hash(
+    *,
+    user_id: Optional[int],
+    device_name: str,
+    session_id: Optional[str],
+) -> Optional[str]:
+    """读当前元素树并返回稳定哈希；读不到（异常/非成功/空）返回 None，不抛异常。"""
+    raw = _post_control(
+        action="ui_tree",
+        params={},
+        user_id=user_id,
+        device_name=device_name,
+        wait_seconds=20,
+        session_id=session_id,
+    )
+    try:
+        data = json.loads(raw)
+    except Exception:
+        return None
+    if not data.get("ok") or data.get("status") not in ("done", "success"):
+        return None
+    output = data.get("output")
+    if output in (None, "", [], {}):
+        return None
+    return hashlib.sha256(
+        json.dumps(output, ensure_ascii=False, sort_keys=True, default=str).encode("utf-8")
+    ).hexdigest()
+
+
+def _phone_control_action_verified(
+    action: str,
+    params: dict,
+    user_id: Optional[int],
+    device_name: str,
+    wait_seconds: int,
+    session_id: Optional[str],
+    **kwargs: Any,
+) -> str:
+    """写类 UI 动作的点后核验包装：动作前读树存哈希 → 动作 → 读树对比 → 阶梯重试。"""
+    from agent.post_action_verifier import verify_action  # 延迟导入防循环依赖
+
+    sid = session_id or kwargs.get("session_id")
+
+    def _snapshot() -> Optional[str]:
+        return _ui_tree_hash(user_id=user_id, device_name=device_name, session_id=sid)
+
+    before = _snapshot()
+    if before is None:
+        # 动作前就读不到元素树：没有可靠读回口子，不硬套核验，行为照旧
+        return _post_control(
+            action=action,
+            params=params,
+            user_id=user_id,
+            device_name=device_name,
+            wait_seconds=wait_seconds,
+            session_id=sid,
+        )
+
+    captured: dict[str, str] = {}
+
+    def _act() -> None:
+        captured["raw"] = _post_control(
+            action=action,
+            params=params,
+            user_id=user_id,
+            device_name=device_name,
+            wait_seconds=wait_seconds,
+            session_id=sid,
+        )
+
+    def _probe() -> Optional[bool]:
+        after = _snapshot()
+        if after is None:
+            return None  # 读不到现状按未达成处理，不瞎判成功
+        return after != before
+
+    # 预算要盖住整个阶梯：每轮动作+探测最多各等 wait_seconds，共 3 轮（首轮+2 重试）
+    budget_s = (wait_seconds * 2 + 10) * 3 + 5
+    outcome = verify_action(_act, _probe, budget_s=budget_s)
+    verify_dict = outcome.to_dict()
+
+    raw = captured.get("raw")
+    if not raw:
+        # 动作执行环节连原始响应都没拿到（如异常路径）
+        return json.dumps(
+            {"ok": False, "error": f"写类动作执行失败: {outcome.failure_code}", "verify": verify_dict},
+            ensure_ascii=False,
+        )
+    try:
+        data = json.loads(raw)
+    except Exception:
+        data = {"ok": False, "error": "响应解析失败", "verify": verify_dict}
+    else:
+        data["verify"] = verify_dict
+    return json.dumps(data, ensure_ascii=False)
 
 
 def _read_phone_setting(
@@ -309,7 +423,8 @@ def phone_control(
 
     Returns:
         JSON 字符串：{ok, status, output, id, note}
-        （HERMES_MUTATION_VERIFY=ON 时 set_wifi/set_bluetooth 另带 verify 读回核验字段）
+        （HERMES_MUTATION_VERIFY=ON 时 set_wifi/set_bluetooth 另带 verify 读回核验字段，
+        HERMES_ACTION_VERIFY=ON 时 tap/tap_text/type_text/swipe 另带 verify 点后核验字段）
     """
     action = (action or "").strip()
     if action not in _ACTIONS:
@@ -321,6 +436,16 @@ def phone_control(
     params = params or {}
     if action in _SET_STATE_KEYS and _mutation_verify_enabled():
         return _phone_control_verified(
+            action=action,
+            params=params,
+            user_id=user_id,
+            device_name=device_name,
+            wait_seconds=wait_seconds,
+            session_id=session_id,
+            **kwargs,
+        )
+    if action in _WRITE_UI_ACTIONS and _action_verify_enabled():
+        return _phone_control_action_verified(
             action=action,
             params=params,
             user_id=user_id,
