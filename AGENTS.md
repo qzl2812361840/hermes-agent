@@ -558,3 +558,7 @@ session-storage, ...). Workflow rules (PR/issue/review/salvage process) live in 
 4. **分支纪律**：hermes-agent 用 ganiu-patches-build 分支；其余仓库直接 master 小步提交。
 5. 兜底机制：系统每小时自动 checkpoint 提交脏工作区（见 crontab git-checkpoint-hourly），
    但那是保险丝不是借口 —— 主动提交永远是第一选择。
+
+## 集成去重（2026-11-06 主人令，强制执行，全体会话遵守）
+- 凡集成/吸收别人项目时遇到重复实现：能合并就合并；不能合并就保留其中一方——我们的更好保留我们的，他们的更好保留他们的。
+- 不许"两份都留着备用"。落地前先做去重账：查清仓库里已有的等价实现，逐条判定合并或留一。

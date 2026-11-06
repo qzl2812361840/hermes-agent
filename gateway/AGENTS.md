@@ -253,3 +253,7 @@ gateway under the backend, and do NOT "fix" update locks by widening the tree-ki
 assert on hardcoded platform lists or command counts (root: no change-detectors). Session-key and
 guard behaviour are invariants worth a test; platform API quirks belong in connector comments +
 tests, not in prose.
+
+## 集成去重（2026-11-06 主人令，强制执行，全体会话遵守）
+- 凡集成/吸收别人项目时遇到重复实现：能合并就合并；不能合并就保留其中一方——我们的更好保留我们的，他们的更好保留他们的。
+- 不许"两份都留着备用"。落地前先做去重账：查清仓库里已有的等价实现，逐条判定合并或留一。
