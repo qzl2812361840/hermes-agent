@@ -5768,6 +5768,13 @@ def _start_gateway_start_cron_and_housekeeping(runner):
                 "cron_provider": cron_provider, "runner": runner, "cron_thread": cron_thread},
         daemon=True, name="gateway-housekeeping")
     housekeeping_thread.start()
+    # C4 保序回信补投循环（学 dsh outbox 设计）：投递失败进 outbox 台账，这里按序补投；失败不影响启动。
+    try:
+        from .outbox_retry import start_outbox_retry_task
+        start_outbox_retry_task(runner.delivery_router, cron_stop)
+        logger.info("[outbox] 保序回信补投循环已启动")
+    except Exception as outbox_start_err:
+        logger.warning("[outbox] 补投循环启动失败（不影响启动）: %s", outbox_start_err)
     return cron_stop, cron_provider, cron_thread, housekeeping_thread
 
 

@@ -11,7 +11,7 @@ from __future__ import annotations
 import sqlite3
 import time
 from dataclasses import dataclass
-from typing import Callable, Dict, Optional
+from typing import Awaitable, Callable, Dict, Optional
 
 __all__ = ["Outbox", "MAX_ATTEMPTS", "DroppedMessage"]
 
@@ -98,6 +98,43 @@ class Outbox:
                 self.db.execute("UPDATE outbox SET status='done', error=NULL WHERE id=?", (msg_id,))
                 sent += 1
         return sent
+
+    async def flush_async(self, channel: str, asend: Callable[[str, str], Awaitable[None]]) -> int:
+        """flush 的异步版：发送器是 async 函数（如网关的 transport.send），语义与 flush 完全一致。"""
+        sent = 0
+        while True:
+            row = self.db.execute(
+                "SELECT id, payload, attempts FROM outbox WHERE channel=? AND status='pending' ORDER BY seq LIMIT 1",
+                (channel,),
+            ).fetchone()
+            if row is None:
+                break
+            msg_id, payload, attempts = int(row[0]), row[1], int(row[2] or 0)
+            try:
+                await asend(channel, payload)
+            except Exception as exc:
+                if attempts + 1 >= MAX_ATTEMPTS:
+                    self.db.execute("DELETE FROM outbox WHERE id=?", (msg_id,))
+                    self.db.execute(
+                        "INSERT INTO outbox_dropped (channel, payload, reason, at_ms) VALUES (?,?,?,?)",
+                        (channel, payload, str(exc)[:500], self.now_ms()),
+                    )
+                    self.dropped.append(DroppedMessage(channel, payload, str(exc)[:500], self.now_ms()))
+                    return sent  # 升级为系统问题：本通道停止继续投递，留痕可见
+                self.db.execute(
+                    "UPDATE outbox SET attempts=?, error=? WHERE id=?",
+                    (attempts + 1, str(exc)[:500], msg_id),
+                )
+                return sent
+            else:
+                self.db.execute("UPDATE outbox SET status='done', error=NULL WHERE id=?", (msg_id,))
+                sent += 1
+        return sent
+
+    def pending_channels(self) -> list[str]:
+        """有积压消息的通道列表（补投循环按通道逐个 flush）。"""
+        rows = self.db.execute("SELECT DISTINCT channel FROM outbox WHERE status='pending'").fetchall()
+        return [r[0] for r in rows]
 
     def is_acked(self, msg_id: int) -> bool:
         row = self.db.execute("SELECT status FROM outbox WHERE id=?", (msg_id,)).fetchone()

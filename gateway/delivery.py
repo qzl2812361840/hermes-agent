@@ -161,6 +161,8 @@ class DeliveryRouter:
         self.adapters = adapters or {}
         self.output_dir = get_hermes_home() / "cron" / "output"
         self.dead_targets = dead_targets or DeadTargetRegistry()
+        # C4 保序回信台账：只有投递失败才落账（叠加式，成功路径零开销）；懒加载避免启动期开销。
+        self._outbox_retry: Any = None
 
     async def deliver(self, content: str, targets: List[DeliveryTarget], job_id: Optional[str] = None,
                       job_name: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -195,8 +197,23 @@ class DeliveryRouter:
                 if dead_kind:
                     self.dead_targets.mark_dead(target.platform.value, target.chat_id,
                                                 reason=f"{dead_kind}: {str(e)[:120]}")
+                elif tracked:
+                    # C4 保序回信：非永久性失败（网络抖动、限流等）留痕进 outbox，由补投循环按序重发。
+                    try:
+                        self.outbox_retry.record_failure(target.platform.value, target.chat_id, content, metadata)
+                    except Exception as outbox_err:  # 留痕失败不改变本次投递结果
+                        logger.warning("outbox 留痕失败（%s -> %s）: %s",
+                                       target.platform.value, target.chat_id, outbox_err)
                 results[target.to_string()] = {"success": False, "error": str(e)}
         return results
+
+    @property
+    def outbox_retry(self):
+        """C4 保序回信台账（懒加载）：投递失败的消息落 SQLite，后台循环按序补投。"""
+        if self._outbox_retry is None:
+            from .outbox_retry import OutboxRetry
+            self._outbox_retry = OutboxRetry(get_hermes_home() / "gateway" / "outbox_retry.db")
+        return self._outbox_retry
 
     def _deliver_local(self, content: str, job_id: Optional[str], job_name: Optional[str],
                        metadata: Optional[Dict[str, Any]]) -> Dict[str, Any]:
