@@ -6,9 +6,11 @@ Extracted from ``run_agent.py``; every method resolves through ``AIAgent``'s MRO
 import contextlib
 import logging
 import threading
+import uuid
 from typing import Optional
 
 from agent.interrupt_compat import request_hard_interrupt
+from agent.steering_queue import SteeringQueue
 from tools.interrupt import request_yield as _request_yield
 from tools.interrupt import set_interrupt as _set_interrupt
 
@@ -61,6 +63,35 @@ def _ic_lock(agent, attr: str):
     """``with`` the lock stored at ``attr`` when present; __init__-less test stubs run unlocked."""
     lock = getattr(agent, attr, None)
     return contextlib.nullcontext() if lock is None else lock
+
+
+# B5 wiring: the steering queue backs steer()/_drain_pending_steer(). Cap of 5 pending steers,
+# oldest dropped (主人令开源吸收第二批 B5 规格：上限 5 条丢最旧，保留一键打断)。
+_STEER_QUEUE_MAX = 5
+
+
+def _ic_steer_queue(agent):
+    """Per-agent ``SteeringQueue`` (lazy: __init__-less test stubs get their own instance)."""
+    queue = getattr(agent, "_steering_queue", None)
+    if queue is None:
+        queue = SteeringQueue(max_pending=_STEER_QUEUE_MAX)
+        try:
+            agent._steering_queue = queue
+        except Exception:
+            logger.debug("Steering queue attach failed; using a throwaway instance", exc_info=True)
+    return queue
+
+
+def _ic_sync_steer_view(agent, queue) -> None:
+    """Keep the legacy ``_pending_steer`` string view in sync with the queue.
+
+    The queue is the store; the view exists for readers/tests that poke the old slot directly.
+    Joined with newlines so the view shows exactly what the next drain would deliver."""
+    try:
+        texts = queue.pending_texts()
+        agent._pending_steer = "\n".join(texts) if texts else None
+    except Exception:
+        logger.debug("Steering view sync failed", exc_info=True)
 
 
 def _ic_slot(agent, lock_attr: str, slot: str):
@@ -243,20 +274,28 @@ class InterruptControlMixin:
             # Hard stop only (see docstring). The comment that used to run unconditionally here
             # claimed a hard interrupt supersedes the steer — but nothing gated this wipe on
             # hard_cancel, so a soft clear dropped a live user message with no trace.
+            # B5: wipe the queue and its legacy string view together.
+            _cancel_queue = _ic_steer_queue(self)
+            _cancel_queue.drain()
+            _ic_sync_steer_view(self, _cancel_queue)
             with _ic_lock(self, "_pending_steer_lock"):
                 self._pending_steer = None
         return True
 
-    def steer(self, text: str) -> bool:
+    def steer(self, text: str, *, message_id: Optional[str] = None) -> bool:
         """Queue user text for delivery as its own user row after the current tool batch finishes (no
-        interrupt); multiple calls concatenate with newlines. Returns False for empty text."""
+        interrupt). Backed by the B5 ``SteeringQueue``: per-message FIFO, same-id dedup, cap of 5
+        pending steers (oldest dropped). Drains join with newlines, so multiple calls still land as
+        one concatenated user row — same external contract as the legacy slot. Returns False for
+        empty text or a message_id already queued."""
         if not text or not text.strip():
             return False
         cleaned = text.strip()
-        with _ic_lock(self, "_pending_steer_lock"):
-            existing = _ic_slot(self, "_pending_steer_lock", "_pending_steer")
-            self._pending_steer = (existing + "\n" + cleaned) if existing else cleaned
-        return True
+        queue = _ic_steer_queue(self)
+        mid = message_id or f"steer-{uuid.uuid4().hex}"
+        accepted = queue.steer(mid, cleaned)
+        _ic_sync_steer_view(self, queue)
+        return accepted
 
     def redirect(self, text: str) -> bool:
         """Redirect the active turn without converting it into a new task: during a model request only that
@@ -330,8 +369,15 @@ class InterruptControlMixin:
         return text
 
     def _drain_pending_steer(self) -> Optional[str]:
-        """Return the pending steer text (if any) and clear the slot; None when nothing is pending."""
-        with _ic_lock(self, "_pending_steer_lock"):
-            text = _ic_slot(self, "_pending_steer_lock", "_pending_steer")
-            self._pending_steer = None
-        return text
+        """Return the pending steer text (if any) and clear the slot; None when nothing is pending.
+
+        B5: atomically seal+drain the steering queue (a steer arriving after the seal belongs to
+        the next delivery, never dangling mid-generation), FIFO-joined with newlines to keep the
+        legacy single-text contract."""
+        queue = _ic_steer_queue(self)
+        queue.seal()
+        steers = queue.drain()
+        _ic_sync_steer_view(self, queue)
+        if not steers:
+            return None
+        return "\n".join(s.text for s in steers)

@@ -521,10 +521,16 @@ class TestSteerThreadSafety:
 
         text = agent._drain_pending_steer()
         assert text is not None
-        # Every single note must be preserved — none dropped by the lock.
+        # B5 wiring (2026-11-06 主人令): the steering queue caps pending steers at _STEER_QUEUE_MAX,
+        # dropping the OLDEST. Under concurrent producers the surviving set is the last
+        # _STEER_QUEUE_MAX executed steer() calls (scheduling order is nondeterministic), so assert
+        # the no-loss-beyond-cap properties: exactly the cap survives, no duplicates, all from N.
+        # FIFO order determinism is covered by test_queue_max_pending_unit.
+        from agent.interrupt_control import _STEER_QUEUE_MAX
         lines = text.split("\n")
-        assert len(lines) == N
-        assert set(lines) == {f"note-{i}" for i in range(N)}
+        assert len(lines) == min(N, _STEER_QUEUE_MAX)
+        assert len(set(lines)) == len(lines)
+        assert set(lines) <= {f"note-{i}" for i in range(N)}
 
 
 class TestSteerClearedOnInterrupt:

@@ -27,20 +27,28 @@ class Steer:
 
 
 class SteeringQueue:
-    """运行中插话的唯一入口。seal() 与 drain() 配合实现"要么进这批、要么留下轮"的原子语义。"""
+    """运行中插话的唯一入口。seal() 与 drain() 配合实现"要么进这批、要么留下轮"的原子语义。
 
-    def __init__(self) -> None:
+    max_pending（可选）：排队上限；超出时丢最旧的一条（FIFO 队头），新插话永远保留。
+    默认 None = 不设上限，行为与原版完全一致。
+    """
+
+    def __init__(self, max_pending: Optional[int] = None) -> None:
         self._lock = threading.Lock()
         self._steers: deque = deque()
         self._closed = False
         self._generation = 0  # 每次封口+1；调用方用代数判断自己负责的范围
+        self._max_pending = max_pending if (max_pending is None or max_pending > 0) else None
 
     # ------------------------------------------------------------------
     # 写入口
     # ------------------------------------------------------------------
 
     def steer(self, message_id: str, text: str, *, current_task_only: bool = False) -> bool:
-        """排入一句插话。队列已关闭返回 False（调用方转投下一任务），否则 True。"""
+        """排入一句插话。队列已关闭返回 False（调用方转投下一任务），否则 True。
+
+        设了 max_pending 且队列已满时：丢最旧的一条（队头），本句照常排入，返回 True。
+        """
         if not message_id or not text:
             return False
         with self._lock:
@@ -48,7 +56,26 @@ class SteeringQueue:
                 return False
             if any(s.message_id == message_id for s in self._steers):
                 return False  # 同 id 去重：重发不产生双份
+            if self._max_pending is not None:
+                while len(self._steers) >= self._max_pending:
+                    self._steers.popleft()  # 上限丢最旧：新插话不丢
             self._steers.append(Steer(message_id, text, current_task_only))
+            return True
+
+    def requeue_front(self, text: str) -> bool:
+        """把已取走的插话放回队头（比封口后新来的更旧，必须排在它们前面交付）。
+
+        返回 False 仅当队列已关闭。fresh id 由内部计数生成（requeue 的文本不参与同 id 去重）。
+        """
+        if not text:
+            return False
+        with self._lock:
+            if self._closed:
+                return False
+            self._requeue_seq = getattr(self, "_requeue_seq", 0) + 1
+            self._steers.appendleft(
+                Steer(f"requeue-{self._generation}-{self._requeue_seq}", text)
+            )
             return True
 
     def withdraw(self, message_id: str) -> bool:

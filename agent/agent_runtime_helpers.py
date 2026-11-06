@@ -3479,7 +3479,20 @@ def extract_api_error_context(error: Exception) -> Dict[str, Any]:
 
 
 def _requeue_pending_steer(agent, steer_text: str) -> None:
-    """Put drained steer text back so the caller's fallback delivers it as a next-turn user message."""
+    """Put drained steer text back so the caller's fallback delivers it as a next-turn user message.
+
+    B5: with the steering queue present, requeued text goes back at the FRONT — it is older than
+    anything that arrived after the drain (seal puts later steers in the next generation). The
+    legacy `_pending_steer` string view is re-synced so direct readers see the queue state."""
+    queue = getattr(agent, "_steering_queue", None)
+    if queue is not None:
+        queue.requeue_front(steer_text)
+        try:
+            texts = queue.pending_texts()
+            agent._pending_steer = "\n".join(texts) if texts else None
+        except Exception:
+            pass
+        return
     # Under the lock the slot is read directly: an initialized agent always has both attributes, so a
     # missing ``_pending_steer`` there is a real bug and must fail loud. The lock-less branch only
     # exists for test stubs built via ``object.__new__`` that skipped ``__init__``.
