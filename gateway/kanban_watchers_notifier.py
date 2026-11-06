@@ -10,12 +10,14 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import re
+import time
 from functools import partial
 from pathlib import Path
 import weakref
 from typing import Any, Callable, Optional
 
 from agent.i18n import t
+from agent.monitor_fanout import Subscriptions, fanout
 
 from gateway.kanban_watchers_common import _list_boards, _to_thread_process_service, logger
 from gateway.wake import session_owned_by_profile
@@ -33,6 +35,10 @@ def _kbn():
 # "status" covers dashboard drag-drop and `_set_status_direct()`.
 # ``review_requested`` wakes the origin like a block but is not one;
 # the task is not archived so later review cycles keep notifying.
+# C6 订阅直通登记有效期：TTL 内的看板直达认领链路（免逐板只读探测），过期回到常规探测。
+# 订阅变化最迟 TTL 秒后收敛到真实状态（collect_board 每跳回填/摘除）。
+_FAST_SUB_TTL_SECONDS = 300.0
+
 TERMINAL_KINDS = ("completed", "blocked", "gave_up", "crashed", "timed_out", "status", "archived", "unblocked", "block_loop_detected", "review_requested", "changes_requested")
 # Kinds that hand a decision back to the origin, which must take a turn.
 # status/archived/unblocked are bookkeeping.
@@ -224,6 +230,17 @@ class _Collector:
         self.deliveries: list[dict] = []
         self.include_unowned = runner._owns_kanban_dispatcher_lock()
         self.profile_adapters = getattr(runner, "_profile_adapters", {})
+        # C6 订阅直通（学 dsh intake.ts fanout 到 thread.subscriptions）：已登记订阅的看板
+        # 跳过逐板只读探测直达认领链路；未登记的走常规探测（探测命中后回填登记）
+        self.fast_seen: dict[str, float] = getattr(runner, "_kanban_fast_seen", None) or {}
+        runner._kanban_fast_seen = self.fast_seen
+        self.fast_subs = Subscriptions()
+        now_ts = time.time()
+        for seen_slug, seen_at in list(self.fast_seen.items()):
+            if now_ts - seen_at <= _FAST_SUB_TTL_SECONDS:
+                self.fast_subs.subscribe(seen_slug, self._fast_board_chain(seen_slug))
+            else:
+                self.fast_seen.pop(seen_slug, None)
         self.notifier_profiles = {notifier_profile}
         self.notifier_profiles.update(str(p).strip() for p in self.profile_adapters if str(p).strip())
         config = getattr(runner, "config", None)
@@ -257,8 +274,16 @@ class _Collector:
                 logger.debug("kanban notifier: skipping duplicate board slug %s for DB %s", slug, resolved_db_path)
                 continue
             seen_db_paths.add(resolved_db_path)
-            self.collect_board(slug)
+            # C6：已订阅 → fanout 直达该看板认领链（返回 True）；未订阅 → 常规探测路径
+            if not fanout(self.fast_subs, slug, ""):
+                self.collect_board(slug)
         return self.deliveries
+
+    def _fast_board_chain(self, slug: str) -> Callable[[str], None]:
+        """C6 直通链：fanout 命中后直达该看板的认领投递（与常规路径同一套逻辑，免探测）。"""
+        def _chain(_content: str) -> None:
+            self.collect_board(slug, skip_probe=True)
+        return _chain
 
     def _board_has_subs(self, slug: str) -> bool:
         """Cheap read-only probe before the writable connect() (schema init, WAL
@@ -308,9 +333,10 @@ class _Collector:
                      len(events), sub["task_id"], slug, old_cursor, cursor)
         return {"sub": sub, "old_cursor": old_cursor, "cursor": cursor, "events": events, "task": task, "board": slug}
 
-    def collect_board(self, slug: str) -> None:
+    def collect_board(self, slug: str, *, skip_probe: bool = False) -> None:
         """Claim events on one board, appending delivery dicts to ``deliveries``."""
-        if not self._board_has_subs(slug):
+        # C6：skip_probe=True 时来自直通登记（TTL 内确认过订阅），免只读探测直开连接
+        if not skip_probe and not self._board_has_subs(slug):
             return
         kb = self.kb
         try:
@@ -325,6 +351,12 @@ class _Collector:
             # process, and init_db() would re-run it on a second connection racing
             # the first.
             subs = _kbn().list_notify_subs(conn, notifier_profiles=self.notifier_profiles, include_unowned=self.include_unowned)
+            if subs:
+                # C6：确认订阅在 → 回填直通登记（幂等），下跳起 fanout 直达
+                self.fast_seen[slug] = time.time()
+            else:
+                # C6：订阅清空 → 摘登记，下跳恢复常规探测
+                self.fast_seen.pop(slug, None)
             if not subs:
                 logger.debug("kanban notifier: board %s has no subscriptions", slug)
             for sub in subs:
